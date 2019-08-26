@@ -1,0 +1,114 @@
+version: 1
+policy:
+  pullRequests: public
+tasks:
+  $let:
+    head_branch:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.ref}
+      else:
+        $if: 'tasks_for == "github-push"'
+        then: ${event.ref}
+        else: ${event.release.target_commitish}
+
+    head_rev:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.sha}
+      else:
+        $if: 'tasks_for == "github-push"'
+        then: ${event.after}
+        else: ${event.release.tag_name}
+
+    repository:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.repo.html_url}
+      else: ${event.repository.html_url}
+
+    channel:
+      $if: 'tasks_for == "github-push"'
+      then:
+        $if: 'event.ref in ["refs/heads/testing", "refs/heads/production"]'
+        then: ${event.ref[11:]}
+        else: 'dev'
+      else: 'dev'
+
+    tag:
+      $if: 'tasks_for == "github-push"'
+      then:
+        $if: 'event.ref[:10] == "refs/tags/"'
+        then: {$eval: 'event.ref[10:]' }
+        else: "latest"
+      else: "latest"
+
+    taskboot_image: "mozilla/taskboot:0.1.10"
+  in:
+    - taskId: {$eval: as_slugid("check_lint")}
+      provisionerId: aws-provisioner-v1
+      workerType: github-worker
+      created: {$fromNow: ''}
+      deadline: {$fromNow: '1 hour'}
+      payload:
+        maxRunTime: 3600
+        image: python:3
+        command:
+          - sh
+          - -lxce
+          - "git clone --quiet ${repository} /src && cd /src && git checkout ${head_rev} -b checks &&
+            pip install -q . && pip install -q -r requirements-dev.txt &&
+            cd /src && pre-commit run -a"
+      metadata:
+        name: "libmozevent checks: linting"
+        description: Check code style with pre-commit hooks
+        owner: bastien@mozilla.com
+        source: https://github.com/mozilla/libmozevent
+
+    - taskId: {$eval: as_slugid("check_tests")}
+      provisionerId: aws-provisioner-v1
+      workerType: github-worker
+      created: {$fromNow: ''}
+      deadline: {$fromNow: '1 hour'}
+      payload:
+        maxRunTime: 3600
+        image: python:3
+        command:
+          - sh
+          - -lxce
+          - "git clone --quiet ${repository} /src && cd /src && git checkout ${head_rev} -b checks &&
+            pip install -q . && pip install -q -r requirements-dev.txt &&
+            /src/docker/bootstrap.sh &&
+            pytest -v"
+      metadata:
+        name: "libmozevent checks: unit tests"
+        description: Check python code with pytest
+        owner: bastien@mozilla.com
+        source: https://github.com/mozilla/libmozevent
+
+    - $if: 'tag != "latest"'
+      then:
+        taskId: {$eval: as_slugid("publish")}
+        created: {$fromNow: ''}
+        deadline: {$fromNow: '1 hour'}
+        provisionerId: aws-provisioner-v1
+        workerType: github-worker
+        dependencies:
+          - {$eval: as_slugid("check_lint")}
+          - {$eval: as_slugid("check_tests")}
+        payload:
+          features:
+            taskclusterProxy: true
+          maxRunTime: 3600
+          image: "${taskboot_image}"
+          env:
+            TASKCLUSTER_SECRET: "project/relman/libmozevent/deploy"
+            GIT_REPOSITORY: "${repository}"
+            GIT_REVISION: "${head_rev}"
+          command:
+            - taskboot
+            - deploy-pypi
+        scopes:
+          - "secrets:get:project/relman/libmozevent/deploy"
+        metadata:
+          name: "libmozevent publication on PyPi"
+          description: Publish new version on PyPi
+          owner: bastien@mozilla.com
+          source: https://github.com/mozilla/libmozevent
