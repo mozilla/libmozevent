@@ -7,8 +7,7 @@ import pytest
 
 from libmozevent.bus import MessageBus
 from libmozevent.mercurial import MercurialWorker
-from libmozevent.phabricator import PhabricatorBuild
-from libmozevent.phabricator import PhabricatorBuildState
+from libmozevent.phabricator import PhabricatorBuild, PhabricatorBuildState
 
 MERCURIAL_FAILURE = """unable to find 'crash.txt' for patching
 (use '--prefix' to apply patch relative to the current directory)

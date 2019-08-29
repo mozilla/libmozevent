@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 import asyncio
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import structlog
-from taskcluster.utils import slugId
-from taskcluster.utils import stringDate
+from taskcluster.utils import slugId, stringDate
 
 from libmozevent import taskcluster
 

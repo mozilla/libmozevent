@@ -9,8 +9,7 @@ import json
 import os.path
 import urllib.parse
 from contextlib import contextmanager
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import hglib
