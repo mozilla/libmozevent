@@ -3,10 +3,10 @@ import asyncio
 
 import pytest
 
-from pulselistener.config import QUEUE_MONITORING
-from pulselistener.config import QUEUE_PULSE_CODECOV
-from pulselistener.lib.bus import MessageBus
-from pulselistener.listener import CodeCoverage
+from libmozevent.config import QUEUE_MONITORING
+from libmozevent.config import QUEUE_PULSE_CODECOV
+from libmozevent.bus import MessageBus
+from libmozevent.listener import CodeCoverage
 
 
 @pytest.mark.asyncio

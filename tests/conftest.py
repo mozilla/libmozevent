@@ -18,9 +18,9 @@ import pytest
 import responses
 from taskcluster.utils import stringDate
 
-from pulselistener import taskcluster
-from pulselistener.lib.mercurial import Repository
-from pulselistener.lib.phabricator import PhabricatorActions
+from libmozevent import taskcluster
+from libmozevent.mercurial import Repository
+from libmozevent.phabricator import PhabricatorActions
 
 MOCK_DIR = os.path.join(os.path.dirname(__file__), 'mocks')
 

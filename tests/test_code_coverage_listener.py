@@ -5,8 +5,8 @@ import os
 import pytest
 import responses
 
-from pulselistener.lib.bus import MessageBus
-from pulselistener.listener import CodeCoverage
+from libmozevent.bus import MessageBus
+from libmozevent.listener import CodeCoverage
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 

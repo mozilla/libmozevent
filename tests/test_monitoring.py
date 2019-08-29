@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import pytest
 
-from pulselistener.lib.bus import MessageBus
-from pulselistener.lib.monitoring import Monitoring
+from libmozevent.bus import MessageBus
+from libmozevent.monitoring import Monitoring
 
 
 @pytest.mark.asyncio

@@ -48,7 +48,7 @@ class MessageBus(object):
         assert name not in self.queues, 'Queue {} already setup'.format(name)
         assert isinstance(maxsize, int)
         if self.redis_enabled and redis:
-            self.queues[name] = RedisQueue(f'pulselistener:{name}')
+            self.queues[name] = RedisQueue(f'libmozevent:{name}')
         elif mp:
             self.queues[name] = multiprocessing.Queue(maxsize=maxsize)
         else:

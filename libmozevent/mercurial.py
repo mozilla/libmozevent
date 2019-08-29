@@ -15,9 +15,9 @@ import hglib
 import structlog
 from libmozdata.phabricator import PhabricatorPatch
 
-from pulselistener.lib.phabricator import PhabricatorBuild
-from pulselistener.lib.utils import batch_checkout
-from pulselistener.lib.utils import robust_checkout
+from libmozevent.phabricator import PhabricatorBuild
+from libmozevent.utils import batch_checkout
+from libmozevent.utils import robust_checkout
 
 logger = structlog.get_logger(__name__)
 
@@ -153,7 +153,7 @@ class Repository(object):
             self.repo.import_(
                 patches=io.BytesIO(patch.patch.encode('utf-8')),
                 message=message,
-                user='pulselistener',
+                user='libmozevent',
             )
 
     def add_try_commit(self, build):
@@ -196,7 +196,7 @@ class Repository(object):
         self.repo.add(path.encode('utf-8'))
         self.repo.commit(
             message=message,
-            user='pulselistener',
+            user='libmozevent',
         )
 
     def push_to_try(self):

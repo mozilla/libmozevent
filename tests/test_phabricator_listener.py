@@ -2,9 +2,9 @@
 
 import pytest
 
-from pulselistener.code_review import CodeReview
-from pulselistener.lib.bus import MessageBus
-from pulselistener.lib.phabricator import PhabricatorBuild
+from libmozevent.code_review import CodeReview
+from libmozevent.bus import MessageBus
+from libmozevent.phabricator import PhabricatorBuild
 
 
 class MockURL():

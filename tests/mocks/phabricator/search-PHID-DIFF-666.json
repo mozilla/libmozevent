@@ -29,7 +29,7 @@
                   "commits": {
                     "commits": [
                       {
-                        "message": "This patch has no real base and will crash pulselistener"
+                        "message": "This patch has no real base and will crash libmozevent"
                       }
                     ]
                   }

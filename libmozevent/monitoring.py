@@ -7,7 +7,7 @@ import structlog
 from taskcluster.utils import slugId
 from taskcluster.utils import stringDate
 
-from pulselistener import taskcluster
+from libmozevent import taskcluster
 
 logger = structlog.get_logger(__name__)
 

@@ -4,7 +4,7 @@ import multiprocessing
 
 import pytest
 
-from pulselistener.lib.bus import MessageBus
+from libmozevent.bus import MessageBus
 
 
 def test_queue_creation():
