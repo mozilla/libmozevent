@@ -9,9 +9,9 @@ from queue import Empty
 
 import aioredis
 
-from cli_common.log import get_logger
+import structlog
 
-logger = get_logger(__name__)
+logger = structlog.get_logger(__name__)
 
 RedisQueue = collections.namedtuple('RedisQueue', 'name')
 
