@@ -8,15 +8,15 @@ from libmozevent.monitoring import Monitoring
 @pytest.mark.asyncio
 async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring('testqueue', ['pinco@pallino'], 1)
+    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task-invalid'))
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task-pending'))
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task1-completed'))
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task2-completed'))
-    await bus.send('testqueue', ('Group1', 'Hook2', 'Task-exception'))
-    await bus.send('testqueue', ('Group2', 'Hook1', 'Task-failed'))
-    assert bus.queues['testqueue'].qsize() == 6
+    await bus.send("testqueue", ("Group1", "Hook1", "Task-invalid"))
+    await bus.send("testqueue", ("Group1", "Hook1", "Task-pending"))
+    await bus.send("testqueue", ("Group1", "Hook1", "Task1-completed"))
+    await bus.send("testqueue", ("Group1", "Hook1", "Task2-completed"))
+    await bus.send("testqueue", ("Group1", "Hook2", "Task-exception"))
+    await bus.send("testqueue", ("Group2", "Hook1", "Task-failed"))
+    assert bus.queues["testqueue"].qsize() == 6
 
     monitoring.queue = QueueMock
     monitoring.notify = NotifyMock
@@ -27,11 +27,11 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
     # Queue throws exception, remove task from queue.
     await monitoring.check_task()
-    assert bus.queues['testqueue'].qsize() == 5
+    assert bus.queues["testqueue"].qsize() == 5
 
     # Task is pending, put it back in the queue.
     await monitoring.check_task()
-    assert bus.queues['testqueue'].qsize() == 5
+    assert bus.queues["testqueue"].qsize() == 5
 
     # No report sent, since we haven't collected any stats yet.
     monitoring.send_report()
@@ -39,34 +39,37 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
     # Task is completed.
     await monitoring.check_task()
-    assert monitoring.stats['Hook1']['completed'] == ['Task1-completed']
-    assert bus.queues['testqueue'].qsize() == 4
+    assert monitoring.stats["Hook1"]["completed"] == ["Task1-completed"]
+    assert bus.queues["testqueue"].qsize() == 4
 
     # Another task is completed.
     await monitoring.check_task()
-    assert monitoring.stats['Hook1']['completed'] == ['Task1-completed', 'Task2-completed']
-    assert bus.queues['testqueue'].qsize() == 3
+    assert monitoring.stats["Hook1"]["completed"] == [
+        "Task1-completed",
+        "Task2-completed",
+    ]
+    assert bus.queues["testqueue"].qsize() == 3
 
     # Task exception.
     assert len(monitoring.queue.created_tasks) == 0
     await monitoring.check_task()
-    assert monitoring.stats['Hook1']['exception'] == []
-    assert monitoring.stats['Hook2']['exception'] == ['Task-exception']
+    assert monitoring.stats["Hook1"]["exception"] == []
+    assert monitoring.stats["Hook2"]["exception"] == ["Task-exception"]
 
     # A new task has been retried, replacing the exception
     assert len(monitoring.queue.created_tasks) == 1
-    assert bus.queues['testqueue'].qsize() == 3
+    assert bus.queues["testqueue"].qsize() == 3
 
     # Task failed.
     await monitoring.check_task()
-    assert monitoring.stats['Hook1']['failed'] == ['Task-failed']
-    assert bus.queues['testqueue'].qsize() == 2
+    assert monitoring.stats["Hook1"]["failed"] == ["Task-failed"]
+    assert bus.queues["testqueue"].qsize() == 2
 
     # Task is pending, put it back in the queue.
     await monitoring.check_task()
-    assert bus.queues['testqueue'].qsize() == 2
+    assert bus.queues["testqueue"].qsize() == 2
 
-    content = '''# Hook1 tasks for the last period
+    content = """# Hook1 tasks for the last period
 
 
 ## completed
@@ -107,24 +110,24 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
 0.00% of all tasks (0/1)
 
-'''
+"""
 
     monitoring.send_report()
-    assert NotifyMock.email_obj['address'] == 'pinco@pallino'
-    assert NotifyMock.email_obj['subject'] == 'Pulse listener tasks'
-    assert NotifyMock.email_obj['content'] == content
-    assert NotifyMock.email_obj['template'] == 'fullscreen'
+    assert NotifyMock.email_obj["address"] == "pinco@pallino"
+    assert NotifyMock.email_obj["subject"] == "Pulse listener tasks"
+    assert NotifyMock.email_obj["content"] == content
+    assert NotifyMock.email_obj["template"] == "fullscreen"
     assert monitoring.stats == {}
 
 
 @pytest.mark.asyncio
 async def test_report_all_completed(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring('testqueue', ['pinco@pallino'], 1)
+    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task1-completed'))
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task2-completed'))
-    assert bus.queues['testqueue'].qsize() == 2
+    await bus.send("testqueue", ("Group1", "Hook1", "Task1-completed"))
+    await bus.send("testqueue", ("Group1", "Hook1", "Task2-completed"))
+    assert bus.queues["testqueue"].qsize() == 2
 
     monitoring.queue = QueueMock
     monitoring.notify = NotifyMock
@@ -139,28 +142,30 @@ async def test_report_all_completed(QueueMock, NotifyMock, mock_taskcluster):
 
 
 @pytest.mark.asyncio
-async def test_monitoring_whiteline_between_failed_and_hook(QueueMock, NotifyMock, mock_taskcluster):
+async def test_monitoring_whiteline_between_failed_and_hook(
+    QueueMock, NotifyMock, mock_taskcluster
+):
     bus = MessageBus()
-    monitoring = Monitoring('testqueue', ['pinco@pallino'], 1)
+    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task-failed'))
-    await bus.send('testqueue', ('Group1', 'Hook2', 'Task-failed'))
-    assert bus.queues['testqueue'].qsize() == 2
+    await bus.send("testqueue", ("Group1", "Hook1", "Task-failed"))
+    await bus.send("testqueue", ("Group1", "Hook2", "Task-failed"))
+    assert bus.queues["testqueue"].qsize() == 2
 
     monitoring.queue = QueueMock
     monitoring.notify = NotifyMock
 
     # Task exception.
     await monitoring.check_task()
-    assert monitoring.stats['Hook1']['failed'] == ['Task-failed']
-    assert bus.queues['testqueue'].qsize() == 1
+    assert monitoring.stats["Hook1"]["failed"] == ["Task-failed"]
+    assert bus.queues["testqueue"].qsize() == 1
 
     # Task failed.
     await monitoring.check_task()
-    assert monitoring.stats['Hook2']['failed'] == ['Task-failed']
-    assert bus.queues['testqueue'].qsize() == 0
+    assert monitoring.stats["Hook2"]["failed"] == ["Task-failed"]
+    assert bus.queues["testqueue"].qsize() == 0
 
-    content = '''# Hook1 tasks for the last period
+    content = """# Hook1 tasks for the last period
 
 
 ## completed
@@ -200,24 +205,24 @@ async def test_monitoring_whiteline_between_failed_and_hook(QueueMock, NotifyMoc
 
 100.00% of all tasks (1/1)
 
-* [Task-failed](https://tools.taskcluster.net/task-inspector/#Task-failed)'''
+* [Task-failed](https://tools.taskcluster.net/task-inspector/#Task-failed)"""
 
     monitoring.send_report()
-    assert NotifyMock.email_obj['address'] == 'pinco@pallino'
-    assert NotifyMock.email_obj['subject'] == 'Pulse listener tasks'
-    assert NotifyMock.email_obj['content'] == content
-    assert NotifyMock.email_obj['template'] == 'fullscreen'
+    assert NotifyMock.email_obj["address"] == "pinco@pallino"
+    assert NotifyMock.email_obj["subject"] == "Pulse listener tasks"
+    assert NotifyMock.email_obj["content"] == content
+    assert NotifyMock.email_obj["template"] == "fullscreen"
     assert monitoring.stats == {}
 
 
 @pytest.mark.asyncio
 async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring('testqueue', ['pinco@pallino'], 1)
+    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
-    await bus.send('testqueue', ('Group1', 'Hook1', 'Task-exception-retry:2'))
-    await bus.send('testqueue', ('Group1', 'Hook2', 'Task-exception-retry:0'))
-    assert bus.queues['testqueue'].qsize() == 2
+    await bus.send("testqueue", ("Group1", "Hook1", "Task-exception-retry:2"))
+    await bus.send("testqueue", ("Group1", "Hook2", "Task-exception-retry:0"))
+    assert bus.queues["testqueue"].qsize() == 2
 
     monitoring.queue = QueueMock
     assert len(monitoring.queue.created_tasks) == 0
@@ -225,31 +230,31 @@ async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskclust
 
     # Task exception with 2 retries
     await monitoring.check_task()
-    assert monitoring.stats['Hook1']['exception'] == ['Task-exception-retry:2']
+    assert monitoring.stats["Hook1"]["exception"] == ["Task-exception-retry:2"]
     assert len(monitoring.queue.created_tasks) == 1
-    assert bus.queues['testqueue'].qsize() == 2
+    assert bus.queues["testqueue"].qsize() == 2
 
     # The retried task should maintain the original taskGroupId
-    old_task = monitoring.queue.task('Task-exception-retry:2')
+    old_task = monitoring.queue.task("Task-exception-retry:2")
     new_task_id, new_task = monitoring.queue.created_tasks[0]
-    assert new_task_id != 'Task-exception-retry:2'
+    assert new_task_id != "Task-exception-retry:2"
     assert new_task != old_task
-    assert new_task['taskGroupId'] == old_task['taskGroupId']
-    assert new_task['payload'] == old_task['payload']
-    assert new_task['created'] != old_task['created']
+    assert new_task["taskGroupId"] == old_task["taskGroupId"]
+    assert new_task["payload"] == old_task["payload"]
+    assert new_task["created"] != old_task["created"]
 
     # Task exception with 0 retries
     # No new task should be created
     await monitoring.check_task()
-    assert monitoring.stats['Hook2']['exception'] == ['Task-exception-retry:0']
+    assert monitoring.stats["Hook2"]["exception"] == ["Task-exception-retry:0"]
     assert len(monitoring.queue.created_tasks) == 1
-    assert bus.queues['testqueue'].qsize() == 1
+    assert bus.queues["testqueue"].qsize() == 1
 
 
 @pytest.mark.asyncio
 async def test_monitoring_restartable(QueueMock, IndexMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring('testqueue', ['pinco@pallino'], 1)
+    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
 
     monitoring.index = IndexMock
@@ -257,18 +262,20 @@ async def test_monitoring_restartable(QueueMock, IndexMock, mock_taskcluster):
 
     # Check a failed task is restartable
     # when the monitoring flag is set
-    assert monitoring.is_restartable('Task-failed-restart')
+    assert monitoring.is_restartable("Task-failed-restart")
 
     # Check a failed task is not restartable
     # when the monitoring flag is not set
-    assert not monitoring.is_restartable('Task-failed-nope')
+    assert not monitoring.is_restartable("Task-failed-nope")
 
     # Check a completed task is not restartable
-    assert not monitoring.is_restartable('Task-completed-restart')
-    assert not monitoring.is_restartable('Task-completed-nope')
+    assert not monitoring.is_restartable("Task-completed-restart")
+    assert not monitoring.is_restartable("Task-completed-nope")
 
     # Check a failed task is restarted by the monitoring flow
     assert len(monitoring.queue.created_tasks) == 0
-    await bus.send('testqueue', ('Group', 'Hook-staticanalysis/bot', 'Task-failed-restart'))
+    await bus.send(
+        "testqueue", ("Group", "Hook-staticanalysis/bot", "Task-failed-restart")
+    )
     await monitoring.check_task()
     assert len(monitoring.queue.created_tasks) == 1
