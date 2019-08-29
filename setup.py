@@ -28,22 +28,17 @@ with open('VERSION') as f:
 
 
 setuptools.setup(
-    name='pulselistener',
+    name='libmozevent',
     version=VERSION,
-    description='Listens to bugzilla entries, executes'
-    'some static analysis and reports results.',
+    description='Listens to Mozilla event sources'
+    'and build workflows on top.',
     author='Mozilla Release Management',
     author_email='release-mgmt-analysis@mozilla.com',
-    url='https://shipit.mozilla-releng.net',
+    url='https://github.com/mozilla/libmozdata',
     tests_require=read_requirements('requirements-dev.txt'),
     install_requires=read_requirements('requirements.txt'),
     packages=setuptools.find_packages(),
     include_package_data=True,
     zip_safe=False,
     license='MPL2',
-    entry_points={
-        'console_scripts': [
-            'pulselistener = pulselistener.cli:main',
-        ]
-    },
 )
