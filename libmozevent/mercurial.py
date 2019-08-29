@@ -137,7 +137,7 @@ class Repository(object):
         except hglib.error.CommandError:
             raise Exception("Failed to update to revision {}".format(hg_base))
 
-        # Get current revision using full informations tuple from hglib
+        # Get current revision using full information tuple from hglib
         revision = self.repo.identify(id=True).strip()
         revision = self.repo.log(revision, limit=1)[0]
         logger.info("Updated repo", revision=revision.node, repo=self.name)
@@ -213,7 +213,7 @@ class Repository(object):
         """
         Steps to clean the mercurial repo
         """
-        logger.info("Remove uncommited changes")
+        logger.info("Remove uncommitted changes")
         self.repo.revert(self.dir.encode("utf-8"), all=True)
 
         logger.info("Remove all mercurial drafts")

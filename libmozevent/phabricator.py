@@ -49,7 +49,7 @@ class PhabricatorBuild(object):
         self.stack = []
 
     def __str__(self):
-        return "Revison {} - {}".format(self.revision_id, self.target_phid)
+        return "Revision {} - {}".format(self.revision_id, self.target_phid)
 
 
 class PhabricatorActions(object):
