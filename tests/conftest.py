@@ -17,7 +17,7 @@ import pytest
 import responses
 from taskcluster.utils import stringDate
 
-from libmozevent import taskcluster
+from libmozevent import taskcluster_config
 from libmozevent.mercurial import Repository
 from libmozevent.phabricator import PhabricatorActions
 
@@ -367,7 +367,7 @@ def mock_taskcluster():
     """
     Mock Tasklcuster authentication
     """
-    taskcluster.options = {"rootUrl": "http://taskcluster.test"}
+    taskcluster_config.options = {"rootUrl": "http://taskcluster.test"}
 
     responses.add(
         responses.GET,

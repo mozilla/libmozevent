@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import structlog
 from taskcluster.utils import slugId, stringDate
 
-from libmozevent import taskcluster
+from libmozevent import taskcluster_config
 
 logger = structlog.get_logger(__name__)
 
@@ -38,9 +38,9 @@ class Monitoring(object):
         self.emails = emails
 
         # Setup Taskcluster services
-        self.notify = taskcluster.get_service("notify")
-        self.queue = taskcluster.get_service("queue")
-        self.index = taskcluster.get_service("index")
+        self.notify = taskcluster_config.get_service("notify")
+        self.queue = taskcluster_config.get_service("queue")
+        self.index = taskcluster_config.get_service("index")
 
     def register(self, bus):
         self.bus = bus
