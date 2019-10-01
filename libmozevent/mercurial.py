@@ -189,6 +189,10 @@ class Repository(object):
         else:
             raise Exception("Unsupported try mode")
 
+        # Add revision url on the commit message
+        if build.revision_url is not None:
+            message += f"\nPhabricator Revision: {build.revision_url}"
+
         # Write content as json and commit it
         with open(path, "w") as f:
             json.dump(config, f, sort_keys=True, indent=4)
