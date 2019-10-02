@@ -197,7 +197,7 @@ class Repository(object):
             }
             message = "try: {}".format(self.try_syntax)
             if build.revision_url is not None:
-                message += f"Phabricator Revision: {build.revision_url}"
+                message += f"\nPhabricator Revision: {build.revision_url}"
 
         else:
             raise Exception("Unsupported try mode")
