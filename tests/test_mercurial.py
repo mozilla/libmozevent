@@ -112,7 +112,7 @@ async def test_push_to_try(PhabricatorMock, mock_mc):
     assert [c.author for c in mock_mc.repo.log()] == [
         b"libmozevent",
         b"John Doe <john@allizom.org>",
-        b"libmozevent",
+        b"randomUsername <random>",
         b"test",
     ]
 
