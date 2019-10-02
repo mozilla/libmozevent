@@ -21,6 +21,7 @@ from libmozevent.utils import batch_checkout, robust_checkout
 logger = structlog.get_logger(__name__)
 
 TREEHERDER_URL = "https://treeherder.mozilla.org/#/jobs?repo={}&revision={}"
+DEFAULT_AUTHOR = "libmozevent"
 
 
 class TryMode(enum.Enum):
@@ -143,16 +144,23 @@ class Repository(object):
         logger.info("Updated repo", revision=revision.node, repo=self.name)
 
         for patch in needed_stack:
-            message = ""
             if patch.commits:
-                message += "{}\n".format(patch.commits[0]["message"])
+                # Use the first commit only
+                commit = patch.commits[0]
+                message = "{}\n".format(commit["message"])
+                user = commit["author"]["raw"] if "author" in commit else DEFAULT_AUTHOR
+            else:
+                # We should always have some commits here
+                logger.warning("Missing commit on patch", id=patch.id)
+                message = ""
+                user = DEFAULT_AUTHOR
             message += "Differential Diff: {}".format(patch.phid)
 
             logger.info("Applying patch", phid=patch.phid, message=message)
             self.repo.import_(
                 patches=io.BytesIO(patch.patch.encode("utf-8")),
                 message=message,
-                user="libmozevent",
+                user=user,
             )
 
     def add_try_commit(self, build):
@@ -198,7 +206,7 @@ class Repository(object):
         with open(path, "w") as f:
             json.dump(config, f, sort_keys=True, indent=4)
         self.repo.add(path.encode("utf-8"))
-        self.repo.commit(message=message, user="libmozevent")
+        self.repo.commit(message=message, user=DEFAULT_AUTHOR)
 
     def push_to_try(self):
         """

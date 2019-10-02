@@ -108,6 +108,14 @@ async def test_push_to_try(PhabricatorMock, mock_mc):
         b"Readme",
     ]
 
+    # Check all commits authors
+    assert [c.author for c in mock_mc.repo.log()] == [
+        b"libmozevent",
+        b"John Doe <john@allizom.org>",
+        b"libmozevent",
+        b"test",
+    ]
+
     # Check the push to try has been called
     # with tip commit
     ssh_conf = 'ssh -o StrictHostKeyChecking="no" -o User="john@doe.com" -o IdentityFile="{}"'.format(
