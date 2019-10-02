@@ -29,7 +29,12 @@
                   "commits": {
                     "commits": [
                       {
-                        "message": "Bug XXX - A first commit message"
+                        "message": "Bug XXX - A first commit message",
+                        "author": {
+                          "name": "randomUsername",
+                          "email": "",
+                          "raw": "randomUsername <random>"
+                        }
                       }
                     ]
                   }

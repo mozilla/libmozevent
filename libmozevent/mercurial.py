@@ -21,6 +21,7 @@ from libmozevent.utils import batch_checkout, robust_checkout
 logger = structlog.get_logger(__name__)
 
 TREEHERDER_URL = "https://treeherder.mozilla.org/#/jobs?repo={}&revision={}"
+DEFAULT_AUTHOR = "libmozevent <release-mgmt-analysis@mozilla.com>"
 
 
 class TryMode(enum.Enum):
@@ -142,17 +143,34 @@ class Repository(object):
         revision = self.repo.log(revision, limit=1)[0]
         logger.info("Updated repo", revision=revision.node, repo=self.name)
 
+        def get_author(commit):
+            """Helper to build a mercurial author from Phabricator data"""
+            author = commit.get("author")
+            if author is None:
+                return DEFAULT_AUTHOR
+            if author["name"] and author["email"]:
+                # Build clean version without quotes
+                return f"{author['name']} <{author['email']}>"
+            return author["raw"]
+
         for patch in needed_stack:
-            message = ""
             if patch.commits:
-                message += "{}\n".format(patch.commits[0]["message"])
+                # Use the first commit only
+                commit = patch.commits[0]
+                message = "{}\n".format(commit["message"])
+                user = get_author(commit)
+            else:
+                # We should always have some commits here
+                logger.warning("Missing commit on patch", id=patch.id)
+                message = ""
+                user = DEFAULT_AUTHOR
             message += "Differential Diff: {}".format(patch.phid)
 
             logger.info("Applying patch", phid=patch.phid, message=message)
             self.repo.import_(
                 patches=io.BytesIO(patch.patch.encode("utf-8")),
                 message=message,
-                user="libmozevent",
+                user=user,
             )
 
     def add_try_commit(self, build):
@@ -189,7 +207,7 @@ class Repository(object):
             }
             message = "try: {}".format(self.try_syntax)
             if build.revision_url is not None:
-                message += f"Phabricator Revision: {build.revision_url}"
+                message += f"\nPhabricator Revision: {build.revision_url}"
 
         else:
             raise Exception("Unsupported try mode")
@@ -198,7 +216,7 @@ class Repository(object):
         with open(path, "w") as f:
             json.dump(config, f, sort_keys=True, indent=4)
         self.repo.add(path.encode("utf-8"))
-        self.repo.commit(message=message, user="libmozevent")
+        self.repo.commit(message=message, user=DEFAULT_AUTHOR)
 
     def push_to_try(self):
         """

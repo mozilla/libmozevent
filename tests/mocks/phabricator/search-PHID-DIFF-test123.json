@@ -29,7 +29,12 @@
                   "commits": {
                     "commits": [
                       {
-                        "message": "Bug XXX - A second commit message"
+                        "message": "Bug XXX - A second commit message",
+                        "author": {
+                          "name": "John Doe",
+                          "email": "john@allizom.org",
+                          "raw": "\"John Doe\" <john@allizom.org>"
+                        }
                       }
                     ]
                   }
