@@ -110,7 +110,7 @@ async def test_push_to_try(PhabricatorMock, mock_mc):
 
     # Check all commits authors
     assert [c.author for c in mock_mc.repo.log()] == [
-        b"libmozevent",
+        b"libmozevent <release-mgmt-analysis@mozilla.com>",
         b"John Doe <john@allizom.org>",
         b"randomUsername <random>",
         b"test",

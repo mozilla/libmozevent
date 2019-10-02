@@ -21,7 +21,7 @@ from libmozevent.utils import batch_checkout, robust_checkout
 logger = structlog.get_logger(__name__)
 
 TREEHERDER_URL = "https://treeherder.mozilla.org/#/jobs?repo={}&revision={}"
-DEFAULT_AUTHOR = "libmozevent"
+DEFAULT_AUTHOR = "libmozevent <release-mgmt-analysis@mozilla.com>"
 
 
 class TryMode(enum.Enum):
@@ -143,12 +143,22 @@ class Repository(object):
         revision = self.repo.log(revision, limit=1)[0]
         logger.info("Updated repo", revision=revision.node, repo=self.name)
 
+        def get_author(commit):
+            """Helper to build a mercurial author from Phabricator data"""
+            author = commit.get("author")
+            if author is None:
+                return DEFAULT_AUTHOR
+            if author["name"] and author["email"]:
+                # Build clean version without quotes
+                return f"{author['name']} <{author['email']}>"
+            return author["raw"]
+
         for patch in needed_stack:
             if patch.commits:
                 # Use the first commit only
                 commit = patch.commits[0]
                 message = "{}\n".format(commit["message"])
-                user = commit["author"]["raw"] if "author" in commit else DEFAULT_AUTHOR
+                user = get_author(commit)
             else:
                 # We should always have some commits here
                 logger.warning("Missing commit on patch", id=patch.id)
