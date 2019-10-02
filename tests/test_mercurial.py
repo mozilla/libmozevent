@@ -205,8 +205,7 @@ async def test_push_to_try_existing_rev(PhabricatorMock, mock_mc):
     assert tip.node != base
     assert (
         tip.desc
-        == b"""Phabricator Revision: http://phab.test/D1234
-try_task_config for code-review
+        == b"""try_task_config for http://phab.test/D1234
 Differential Diff: PHID-DIFF-solo"""
     )
 
