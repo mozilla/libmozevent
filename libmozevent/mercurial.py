@@ -191,7 +191,7 @@ class Repository(object):
 
         # Add revision url on the commit message
         if build.revision_url is not None:
-            message += f"\nPhabricator Revision: {build.revision_url}"
+            message = f"Phabricator Revision: {build.revision_url}\n{message}"
 
         # Write content as json and commit it
         with open(path, "w") as f:
