@@ -44,6 +44,7 @@ class PhabricatorBuild(object):
 
         # Remote objects loaded by actions below
         self.revision = None
+        self.revision_url = None
         self.reviewers = []
         self.diff = None
         self.stack = []
@@ -107,6 +108,7 @@ class PhabricatorActions(object):
 
         if self.is_visible(build):
             build.state = PhabricatorBuildState.Public
+            build.revision_url = self.build_revision_url(build)
             logger.info("Revision is public", build=str(build))
 
         elif retries_left <= 0:
@@ -163,3 +165,9 @@ class PhabricatorActions(object):
             self.api.load_user(user_phid=reviewer["reviewerPHID"])
             for reviewer in reviewers
         ]
+
+    def build_revision_url(self, build):
+        """
+        Build a Phabricator frontend url for a build's revision
+        """
+        return "https://{}/D{}".format(self.api.hostname, build.revision_id)

@@ -25,6 +25,7 @@ class MockBuild(PhabricatorBuild):
         self.diff = diff
         self.stack = []
         self.state = PhabricatorBuildState.Public
+        self.revision_url = None
 
 
 @pytest.mark.asyncio
@@ -152,6 +153,7 @@ async def test_push_to_try_existing_rev(PhabricatorMock, mock_mc):
         "baseRevision": base,
     }
     build = MockBuild(1234, "PHID-REPO-mc", 5678, "PHID-HMBT-deadbeef", diff)
+    build.revision_url = "http://phab.test/D1234"
     with PhabricatorMock as phab:
         phab.load_patches_stack(build)
 
@@ -203,7 +205,8 @@ async def test_push_to_try_existing_rev(PhabricatorMock, mock_mc):
     assert tip.node != base
     assert (
         tip.desc
-        == b"try_task_config for code-review\nDifferential Diff: PHID-DIFF-solo"
+        == b"""try_task_config for http://phab.test/D1234
+Differential Diff: PHID-DIFF-solo"""
     )
 
     # Check the push to try has been called

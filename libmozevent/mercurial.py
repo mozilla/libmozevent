@@ -173,9 +173,12 @@ class Repository(object):
                 },
             }
             diff_phid = build.stack[-1].phid
-            message = "try_task_config for code-review\nDifferential Diff: {}".format(
-                diff_phid
-            )
+
+            if build.revision_url:
+                message = f"try_task_config for {build.revision_url}"
+            else:
+                message = "try_task_config for code-review"
+            message += f"\nDifferential Diff: {diff_phid}"
 
         elif self.try_mode == TryMode.syntax:
             config = {
@@ -185,6 +188,8 @@ class Repository(object):
                 },
             }
             message = "try: {}".format(self.try_syntax)
+            if build.revision_url is not None:
+                message += f"Phabricator Revision: {build.revision_url}"
 
         else:
             raise Exception("Unsupported try mode")
