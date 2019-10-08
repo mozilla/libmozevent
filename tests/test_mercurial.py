@@ -540,4 +540,31 @@ async def test_crash_utf8_author(PhabricatorMock, mock_mc):
     await bus.send("mercurial", build)
     assert bus.queues["mercurial"].qsize() == 1
 
-    await worker.run()
+    # Run the mercurial worker on that patch only
+    task = asyncio.create_task(worker.run())
+    mode, out_build, details = await bus.receive("phabricator")
+    task.cancel()
+
+    # Check we have the patch with utf-8 author properly applied
+    assert [(c.author, c.desc) for c in mock_mc.repo.log()] == [
+        (
+            b"libmozevent <release-mgmt-analysis@mozilla.com>",
+            b"try_task_config for code-review\n"
+            b"Differential Diff: PHID-DIFF-badutf8",
+        ),
+        (
+            b"Andr\xc3\xa9 XXXX <andre.xxxx@allizom.org>",
+            b"This patch has an author with utf8 chars\n"
+            b"Differential Diff: PHID-DIFF-badutf8",
+        ),
+        (b"test", b"Readme"),
+    ]
+
+    # The phab output should be successful
+    assert mode == "success"
+    assert out_build == build
+    assert details[
+        "treeherder_url"
+    ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
+        mock_mc.repo.tip().node.decode("utf-8")
+    )
