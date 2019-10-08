@@ -169,8 +169,8 @@ class Repository(object):
             logger.info("Applying patch", phid=patch.phid, message=message)
             self.repo.import_(
                 patches=io.BytesIO(patch.patch.encode("utf-8")),
-                message=message,
-                user=user,
+                message=message.encode("utf-8"),
+                user=user.encode("utf-8"),
             )
 
     def add_try_commit(self, build):

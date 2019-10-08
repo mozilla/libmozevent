@@ -503,3 +503,68 @@ async def test_push_to_try_nss(PhabricatorMock, mock_nss):
     mock_nss.repo.push.assert_called_with(
         dest=b"http://nss/try", force=True, rev=tip.node, ssh=ssh_conf.encode("utf-8")
     )
+
+
+@pytest.mark.asyncio
+async def test_crash_utf8_author(PhabricatorMock, mock_mc):
+    """
+    Run mercurial worker on a single diff
+    but the patch author has utf-8 chars in its name
+    """
+    diff = {
+        "revisionPHID": "PHID-DREV-badutf8",
+        "baseRevision": "missing",
+        "phid": "PHID-DIFF-badutf8",
+        "id": 555,
+    }
+    build = MockBuild(4444, "PHID-REPO-mc", 5555, "PHID-build-badutf8", diff)
+    with PhabricatorMock as phab:
+        phab.load_patches_stack(build)
+
+    bus = MessageBus()
+    bus.add_queue("phabricator")
+
+    # The patched and config files should not exist at first
+    repo_dir = mock_mc.repo.root().decode("utf-8")
+    config = os.path.join(repo_dir, "try_task_config.json")
+    target = os.path.join(repo_dir, "test.txt")
+    assert not os.path.exists(target)
+    assert not os.path.exists(config)
+
+    worker = MercurialWorker(
+        "mercurial", "phabricator", repositories={"PHID-REPO-mc": mock_mc}
+    )
+    worker.register(bus)
+    assert len(worker.repositories) == 1
+
+    await bus.send("mercurial", build)
+    assert bus.queues["mercurial"].qsize() == 1
+
+    # Run the mercurial worker on that patch only
+    task = asyncio.create_task(worker.run())
+    mode, out_build, details = await bus.receive("phabricator")
+    task.cancel()
+
+    # Check we have the patch with utf-8 author properly applied
+    assert [(c.author, c.desc) for c in mock_mc.repo.log()] == [
+        (
+            b"libmozevent <release-mgmt-analysis@mozilla.com>",
+            b"try_task_config for code-review\n"
+            b"Differential Diff: PHID-DIFF-badutf8",
+        ),
+        (
+            b"Andr\xc3\xa9 XXXX <andre.xxxx@allizom.org>",
+            b"This patch has an author with utf8 chars\n"
+            b"Differential Diff: PHID-DIFF-badutf8",
+        ),
+        (b"test", b"Readme"),
+    ]
+
+    # The phab output should be successful
+    assert mode == "success"
+    assert out_build == build
+    assert details[
+        "treeherder_url"
+    ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
+        mock_mc.repo.tip().node.decode("utf-8")
+    )
