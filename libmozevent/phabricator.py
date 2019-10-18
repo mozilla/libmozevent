@@ -169,9 +169,11 @@ class PhabricatorActions(object):
                 raise Exception(f"Unsupported reviewer {phid}")
 
         reviewers = build.revision["attachments"]["reviewers"]["reviewers"]
-        build.reviewers = [
-            load_user(reviewer["reviewerPHID"]) for reviewer in reviewers
-        ]
+        build.reviewers = list(
+            filter(
+                None, [load_user(reviewer["reviewerPHID"]) for reviewer in reviewers]
+            )
+        )
 
     def build_revision_url(self, build):
         """
