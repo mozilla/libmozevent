@@ -160,10 +160,17 @@ class PhabricatorActions(object):
         assert build.state == PhabricatorBuildState.Public
         assert build.revision is not None
 
+        def load_user(phid):
+            if phid.startswith("PHID-USER"):
+                return self.api.load_user(user_phid=phid)
+            elif phid.startswith("PHID-PROJ"):
+                logger.info(f"Skipping group reviewer {phid}")
+            else:
+                raise Exception(f"Unsupported reviewer {phid}")
+
         reviewers = build.revision["attachments"]["reviewers"]["reviewers"]
         build.reviewers = [
-            self.api.load_user(user_phid=reviewer["reviewerPHID"])
-            for reviewer in reviewers
+            load_user(reviewer["reviewerPHID"]) for reviewer in reviewers
         ]
 
     def build_revision_url(self, build):
