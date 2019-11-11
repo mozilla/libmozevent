@@ -43,8 +43,8 @@ tasks:
     taskboot_image: "mozilla/taskboot:0.1.10"
   in:
     - taskId: {$eval: as_slugid("check_lint")}
-      provisionerId: aws-provisioner-v1
-      workerType: github-worker
+      provisionerId: proj-relman
+      workerType: ci
       created: {$fromNow: ''}
       deadline: {$fromNow: '1 hour'}
       payload:
@@ -63,8 +63,8 @@ tasks:
         source: https://github.com/mozilla/libmozevent
 
     - taskId: {$eval: as_slugid("check_tests")}
-      provisionerId: aws-provisioner-v1
-      workerType: github-worker
+      provisionerId: proj-relman
+      workerType: ci
       created: {$fromNow: ''}
       deadline: {$fromNow: '1 hour'}
       payload:
@@ -88,8 +88,8 @@ tasks:
         taskId: {$eval: as_slugid("publish")}
         created: {$fromNow: ''}
         deadline: {$fromNow: '1 hour'}
-        provisionerId: aws-provisioner-v1
-        workerType: github-worker
+        provisionerId: proj-relman
+        workerType: ci
         dependencies:
           - {$eval: as_slugid("check_lint")}
           - {$eval: as_slugid("check_tests")}
