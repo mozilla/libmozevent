@@ -16,17 +16,16 @@ except ImportError:
 
 logger = structlog.get_logger(__name__)
 
-TASKCLUSTER_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
 
 class TaskclusterConfig(object):
     """
     Local configuration used to access Taskcluster service and objects
     """
 
-    def __init__(self):
+    def __init__(self, url="https://community-tc.services.mozilla.com"):
         self.options = None
         self.secrets = None
+        self.default_url = os.environ.get("TASKCLUSTER_ROOT_URL", url)
 
     def auth(self, client_id=None, access_token=None):
         """
@@ -66,15 +65,18 @@ class TaskclusterConfig(object):
                 "clientId": client_id,
                 "accessToken": access_token,
             }
-            self.options["rootUrl"] = os.environ.get(
-                "TASKCLUSTER_ROOT_URL", "https://firefox-ci-tc.services.mozilla.com"
-            )
+            self.options["rootUrl"] = self.default_url
 
-        else:
+        elif "TASK_ID" in os.environ:
             # Load secrets from TC task context
             # with taskclusterProxy
+            # Only works when running in a Taskcluster Task
             logger.info("Taskcluster Proxy enabled")
             self.options["rootUrl"] = "http://taskcluster"
+
+        else:
+            logger.info("No Taskcluster authentication.")
+            self.options["rootUrl"] = self.default_url
 
     def get_service(self, service_name):
         """
@@ -87,10 +89,13 @@ class TaskclusterConfig(object):
         )
         return service(self.options)
 
-    def load_secrets(self, name, project_name, required=[], existing=dict()):
+    def load_secrets(
+        self, name, project_name, required=[], existing=dict(), local_secrets=None
+    ):
         """
         Fetch a specific set of secrets by name and verify that the required
         secrets exist.
+        Also supports a local secrets payload (as a dict) to avoid using Taskcluster service
 
         Merge secrets in the following order (the latter overrides the former):
             - `existing` argument
@@ -99,14 +104,21 @@ class TaskclusterConfig(object):
             - project specific secrets, specified under the `project_name` key in
               the secrets object
         """
-        assert name is not None, "Missing Taskcluster secret name"
         self.secrets = dict()
         if existing:
             self.secrets = copy.deepcopy(existing)
 
-        secrets_service = self.get_service("secrets")
-        all_secrets = secrets_service.get(name).get("secret", dict())
-        logger.info("Loaded Taskcluster secret", name=name)
+        if local_secrets is None:
+            # Use Taskcluster secret service
+            assert name is not None, "Missing Taskcluster secret name"
+            secrets_service = self.get_service("secrets")
+            all_secrets = secrets_service.get(name).get("secret", dict())
+            logger.info("Loaded Taskcluster secret", name=name)
+        else:
+            # Use local YAML file to avoid using Taskcluster secrets
+            assert isinstance(local_secrets, dict), "Local secrets must be a dict"
+            logger.info("Using provided local secrets.")
+            all_secrets = local_secrets
 
         secrets_common = all_secrets.get("common", dict())
         self.secrets.update(secrets_common)
