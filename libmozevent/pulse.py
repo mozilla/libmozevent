@@ -103,7 +103,7 @@ class PulseListener(object):
                 # Check pulse server is still connected
                 # AmqpClosedConnection will be thrown otherwise
                 await pulse.ensure_open()
-                await asyncio.sleep(0)
+                await asyncio.sleep(7)
             except (aioamqp.AmqpClosedConnection, OSError) as e:
                 logger.exception("Reconnecting pulse client in 5 seconds", error=str(e))
                 pulse = None
