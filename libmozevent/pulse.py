@@ -5,22 +5,27 @@
 
 import asyncio
 import json
+from typing import List, Tuple
 
 import aioamqp
 import structlog
 
 logger = structlog.get_logger(__name__)
 
+Queue = str
+Route = str
+PulseBinding = Tuple[Queue, List[Route]]
 
-async def create_pulse_listener(user, password, exchange, topic, callback):
+
+async def create_pulse_listener(
+    user, password, exchanges_topics: List[PulseBinding], callback
+):
     """
     Create an async consumer for Mozilla pulse queues
     Inspired by : https://github.com/mozilla-releng/fennec-aurora-task-creator/blob/master/fennec_aurora_task_creator/worker.py  # noqa
     """
     assert isinstance(user, str)
     assert isinstance(password, str)
-    assert isinstance(exchange, str)
-    assert isinstance(topic, str)
 
     host = "pulse.mozilla.org"
     port = 5671
@@ -32,40 +37,45 @@ async def create_pulse_listener(user, password, exchange, topic, callback):
     channel = await protocol.channel()
     await channel.basic_qos(prefetch_count=1, prefetch_size=0, connection_global=False)
 
-    # get exchange name out from full exchange name
-    exchange_name = exchange
-    if exchange.startswith(f"exchange/{user}/"):
-        exchange_name = exchange[len(f"exchange/{user}/") :]
-    elif exchange.startswith(f"exchange/"):
-        exchange_name = exchange[len(f"exchange/") :]
+    for exchange, topics in exchanges_topics:
+        # get exchange name out from full exchange name
+        exchange_name = exchange
+        if exchange.startswith(f"exchange/{user}/"):
+            exchange_name = exchange[len(f"exchange/{user}/") :]
+        elif exchange.startswith(f"exchange/"):
+            exchange_name = exchange[len(f"exchange/") :]
 
-    # full exchange name should start with "exchange/"
-    if not exchange.startswith("exchange/"):
-        exchange = f"exchange/{exchange}"
+        # full exchange name should start with "exchange/"
+        if not exchange.startswith("exchange/"):
+            exchange = f"exchange/{exchange}"
 
-    # queue is required to:
-    # - start with "queue/"
-    # - user should follow the "queue/"
-    # - after that "exchange/" should follow, this is not requirement from
-    #   pulse but something we started doing in release services
-    queue = f"queue/{user}/exchange/{exchange_name}"
+        # queue is required to:
+        # - start with "queue/"
+        # - user should follow the "queue/"
+        # - after that "exchange/" should follow, this is not requirement from
+        #   pulse but something we started doing in release services
+        queue = f"queue/{user}/exchange/{exchange_name}"
 
-    await channel.queue_declare(queue_name=queue, durable=True)
+        await channel.queue_declare(queue_name=queue, durable=True)
 
-    # in case we are going to listen to an exchange that is specific for this
-    # user, we need to ensure that exchange exists before first message is
-    # sent (this is what creates exchange)
-    if exchange.startswith(f"exchange/{user}/"):
-        await channel.exchange_declare(
-            exchange_name=exchange, type_name="topic", durable=True
-        )
+        # in case we are going to listen to an exchange that is specific for this
+        # user, we need to ensure that exchange exists before first message is
+        # sent (this is what creates exchange)
+        if exchange.startswith(f"exchange/{user}/"):
+            await channel.exchange_declare(
+                exchange_name=exchange, type_name="topic", durable=True
+            )
 
-    logger.info("Connected on pulse", queue=queue, topic=topic, exchange=exchange)
+        for topic in topics:
+            logger.info(
+                "Connected on pulse", queue=queue, topic=topic, exchange=exchange
+            )
 
-    await channel.queue_bind(
-        exchange_name=exchange, queue_name=queue, routing_key=topic
-    )
-    await channel.basic_consume(callback, queue_name=queue)
+            await channel.queue_bind(
+                exchange_name=exchange, queue_name=queue, routing_key=topic
+            )
+
+        await channel.basic_consume(callback, queue_name=queue)
 
     return protocol
 
@@ -75,10 +85,11 @@ class PulseListener(object):
     Pulse queues connector to receive external messages and react to them
     """
 
-    def __init__(self, output_queue_name, queue, route, user, password):
+    def __init__(
+        self, output_queue_name, queues_routes: List[PulseBinding], user, password
+    ):
         self.queue_name = output_queue_name
-        self.queue = queue
-        self.route = route
+        self.queues_routes = queues_routes
         self.user = user
         self.password = password
 
@@ -88,9 +99,11 @@ class PulseListener(object):
 
     async def connect(self):
         protocol = await create_pulse_listener(
-            self.user, self.password, self.queue, self.route, self.got_message
+            self.user, self.password, self.queues_routes, self.got_message
         )
-        logger.info("Worker starts consuming messages", queue=self.queue)
+        logger.info(
+            "Worker starts consuming messages", queues_routes=self.queues_routes
+        )
         return protocol
 
     async def run(self):
