@@ -342,4 +342,8 @@ class MercurialWorker(object):
                 {"message": str(e), "duration": time.time() - start},
             )
 
-        return ("success", build, {"treeherder_url": uri, "revision": tip.node.decode("utf-8")})
+        return (
+            "success",
+            build,
+            {"treeherder_url": uri, "revision": tip.node.decode("utf-8")},
+        )
