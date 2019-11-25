@@ -79,6 +79,7 @@ async def test_push_to_try(PhabricatorMock, mock_mc):
     ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
         tip.node.decode("utf-8")
     )
+    assert details["revision"] == tip.node.decode("utf-8")
     task.cancel()
 
     # The target should have content now
@@ -191,6 +192,7 @@ async def test_push_to_try_existing_rev(PhabricatorMock, mock_mc):
     ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
         tip.node.decode("utf-8")
     )
+    assert details["revision"] == tip.node.decode("utf-8")
     task.cancel()
 
     # The target should have content now
@@ -300,6 +302,7 @@ async def test_treeherder_link(PhabricatorMock, mock_mc):
     ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
         tip.node.decode("utf-8")
     )
+    assert details["revision"] == tip.node.decode("utf-8")
     task.cancel()
 
     # Tip should be updated
@@ -468,6 +471,7 @@ async def test_push_to_try_nss(PhabricatorMock, mock_nss):
     ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
         tip.node.decode("utf-8")
     )
+    assert details["revision"] == tip.node.decode("utf-8")
     task.cancel()
 
     # The target should have content now
@@ -568,3 +572,4 @@ async def test_crash_utf8_author(PhabricatorMock, mock_mc):
     ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
         mock_mc.repo.tip().node.decode("utf-8")
     )
+    assert details["revision"] == mock_mc.repo.tip().node.decode("utf-8")
