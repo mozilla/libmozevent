@@ -128,11 +128,20 @@ class PulseListener(object):
         """
         assert isinstance(body, bytes), "Body is not in bytes"
 
-        body = json.loads(body.decode("utf-8"))
+        # Build routing information to identify the payload source
+        routing = {
+            "exchange": envelope.exchange_name,
+            "key": envelope.routing_key,
+            "other_routes": properties.headers.get("CC", []),
+        }
+
+        # Automatically decode json payloads
+        if properties.content_type == "application/json":
+            body = json.loads(body.decode("utf-8"))
 
         # Push the message in the message bus
         logger.debug("Received a pulse message")
-        await self.bus.send(self.queue_name, body)
+        await self.bus.send(self.queue_name, {"routing": routing, "body": body})
 
         # Ack the message so it is removed from the broker's queue
         await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
