@@ -137,7 +137,7 @@ class PulseListener(object):
 
         # Automatically decode json payloads
         if properties.content_type == "application/json":
-            body = json.loads(body.decode("utf-8"))
+            body = json.loads(body)
 
         # Push the message in the message bus
         logger.debug("Received a pulse message")
