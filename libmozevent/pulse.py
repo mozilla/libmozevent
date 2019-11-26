@@ -18,7 +18,7 @@ PulseBinding = Tuple[Queue, List[Route]]
 
 
 async def create_pulse_listener(
-    user, password, exchanges_topics: List[PulseBinding], callback
+    user, password, exchanges_topics: List[PulseBinding], callback, virtualhost=""
 ):
     """
     Create an async consumer for Mozilla pulse queues
@@ -31,7 +31,12 @@ async def create_pulse_listener(
     port = 5671
 
     _, protocol = await aioamqp.connect(
-        host=host, login=user, password=password, ssl=True, port=port
+        host=host,
+        login=user,
+        password=password,
+        ssl=True,
+        port=port,
+        virtualhost=virtualhost,
     )
 
     channel = await protocol.channel()
@@ -86,12 +91,18 @@ class PulseListener(object):
     """
 
     def __init__(
-        self, output_queue_name, queues_routes: List[PulseBinding], user, password
+        self,
+        output_queue_name,
+        queues_routes: List[PulseBinding],
+        user,
+        password,
+        virtualhost,
     ):
         self.queue_name = output_queue_name
         self.queues_routes = queues_routes
         self.user = user
         self.password = password
+        self.virtualhost = virtualhost
 
     def register(self, bus):
         self.bus = bus
@@ -99,7 +110,11 @@ class PulseListener(object):
 
     async def connect(self):
         protocol = await create_pulse_listener(
-            self.user, self.password, self.queues_routes, self.got_message
+            self.user,
+            self.password,
+            self.queues_routes,
+            self.got_message,
+            self.virtualhost,
         )
         logger.info(
             "Worker starts consuming messages", queues_routes=self.queues_routes
