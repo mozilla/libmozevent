@@ -113,7 +113,7 @@ class MessageBus(object):
 
             return await _get()
 
-    async def run(self, method, input_name, output_name=None):
+    async def run(self, method, input_name, output_name=None, sequential=True):
         """
         Pass messages from input to output
         Optionally applies some conversions methods
@@ -124,13 +124,21 @@ class MessageBus(object):
             output_name is None or output_name in self.queues
         ), "Missing queue {}".format(output_name)
 
+        assert (
+            sequential is True or output_name is None
+        ), "Parallel run is not supported yet when an output queue is defined"
+
         while True:
             message = await self.receive(input_name)
 
             # Run async or sync methods
             if inspect.iscoroutinefunction(method):
-                new_message = await method(message)
+                if sequential:
+                    new_message = await method(message)
+                else:
+                    asyncio.create_task(method(message))
             else:
+                assert sequential, "Can't run normal functions in parallel"
                 new_message = method(message)
 
             if output_name is not None:

@@ -189,6 +189,58 @@ async def test_conversion():
 
 
 @pytest.mark.asyncio
+async def test_run_async_parallel():
+    """
+    Test using run to get messages from a queue using an async function executed in parallel
+    """
+    bus = MessageBus()
+    bus.add_queue("input")
+    bus.add_queue("end", maxsize=1)
+    assert isinstance(bus.queues["input"], asyncio.Queue)
+    assert bus.queues["input"].qsize() == 0
+
+    await bus.send("input", 0)
+    await bus.send("input", 1)
+    await bus.send("input", 2)
+
+    assert bus.queues["input"].qsize() == 3
+
+    done = {
+        0: False,
+        1: False,
+        2: False,
+    }
+
+    async def torun(count):
+        await asyncio.sleep(0)
+
+        if count == 0:
+            # Wait for 7 seconds, in the meantime other tasks will be scheduled
+            # and executed.
+            await asyncio.sleep(7)
+        elif count == 1:
+            pass
+        elif count == 2:
+            await bus.send("end", count)
+        else:
+            assert False
+
+        done[count] = True
+
+    task = asyncio.create_task(bus.run(torun, "input", sequential=False))
+
+    await bus.receive("end") == 1
+    task.cancel()
+    assert bus.queues["input"].qsize() == 0
+    assert bus.queues["end"].qsize() == 0
+    assert done == {
+        0: False,
+        1: True,
+        2: True,
+    }
+
+
+@pytest.mark.asyncio
 async def test_maxsize():
     """
     Test a queue maxsize behaves as expected
