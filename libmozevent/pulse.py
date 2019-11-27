@@ -18,7 +18,7 @@ PulseBinding = Tuple[Queue, List[Route]]
 
 
 async def create_pulse_listener(
-    user, password, exchanges_topics: List[PulseBinding], callback, virtualhost=""
+    user, password, exchanges_topics: List[PulseBinding], callback, virtualhost="/"
 ):
     """
     Create an async consumer for Mozilla pulse queues
@@ -96,7 +96,7 @@ class PulseListener(object):
         queues_routes: List[PulseBinding],
         user,
         password,
-        virtualhost="",
+        virtualhost="/",
     ):
         self.queue_name = output_queue_name
         self.queues_routes = queues_routes
