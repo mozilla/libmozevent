@@ -93,7 +93,6 @@ async def test_run_async_without_output_queue():
     await bus.send("input", "test x")
     await bus.send("input", "hello world.")
 
-    # Convert all strings from input in uppercase
     assert bus.queues["input"].qsize() == 2
 
     count = 0
@@ -133,7 +132,6 @@ async def test_run_sync_without_output_queue():
     await bus.send("input", "test x")
     await bus.send("input", "hello world.")
 
-    # Convert all strings from input in uppercase
     assert bus.queues["input"].qsize() == 2
 
     count = 0
