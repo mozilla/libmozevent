@@ -145,9 +145,7 @@ async def test_run_sync_without_output_queue():
             assert payload == "test x"
         elif count == 1:
             assert payload == "hello world."
-            loop = asyncio.get_event_loop()
-            task = loop.create_task(bus.send("end", count))
-            loop.run_until_complete(task)
+            asyncio.create_task(bus.send("end", count))
         else:
             assert False
 
