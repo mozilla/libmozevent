@@ -80,6 +80,90 @@ async def test_message_passing_mp():
 
 
 @pytest.mark.asyncio
+async def test_run_async_without_output_queue():
+    """
+    Test using run to get messages from a queue using an async function and without an output queue
+    """
+    bus = MessageBus()
+    bus.add_queue("input")
+    bus.add_queue("end", maxsize=1)
+    assert isinstance(bus.queues["input"], asyncio.Queue)
+    assert bus.queues["input"].qsize() == 0
+
+    await bus.send("input", "test x")
+    await bus.send("input", "hello world.")
+
+    # Convert all strings from input in uppercase
+    assert bus.queues["input"].qsize() == 2
+
+    count = 0
+
+    async def torun(payload):
+        nonlocal count
+
+        if count == 0:
+            assert payload == "test x"
+        elif count == 1:
+            assert payload == "hello world."
+            await bus.send("end", count)
+        else:
+            assert False
+
+        count += 1
+
+    task = asyncio.create_task(bus.run(torun, "input"))
+
+    await bus.receive("end") == 1
+    task.cancel()
+    assert bus.queues["input"].qsize() == 0
+    assert bus.queues["end"].qsize() == 0
+
+
+@pytest.mark.asyncio
+async def test_run_sync_without_output_queue():
+    """
+    Test using run to get messages from a queue using a function and without an output queue
+    """
+    bus = MessageBus()
+    bus.add_queue("input")
+    bus.add_queue("end", maxsize=1)
+    assert isinstance(bus.queues["input"], asyncio.Queue)
+    assert bus.queues["input"].qsize() == 0
+
+    await bus.send("input", "test x")
+    await bus.send("input", "hello world.")
+
+    # Convert all strings from input in uppercase
+    assert bus.queues["input"].qsize() == 2
+
+    count = 0
+
+    def torun(payload):
+        nonlocal count
+
+        print(count)
+
+        if count == 0:
+            assert payload == "test x"
+        elif count == 1:
+            assert payload == "hello world."
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(bus.send("end", count))
+            loop.run_until_complete(task)
+        else:
+            assert False
+
+        count += 1
+
+    task = asyncio.create_task(bus.run(torun, "input"))
+
+    await bus.receive("end") == 1
+    task.cancel()
+    assert bus.queues["input"].qsize() == 0
+    assert bus.queues["end"].qsize() == 0
+
+
+@pytest.mark.asyncio
 async def test_conversion():
     """
     Test message conversion between 2 queues
