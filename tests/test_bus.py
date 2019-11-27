@@ -141,8 +141,6 @@ async def test_run_sync_without_output_queue():
     def torun(payload):
         nonlocal count
 
-        print(count)
-
         if count == 0:
             assert payload == "test x"
         elif count == 1:
