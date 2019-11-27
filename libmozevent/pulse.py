@@ -96,7 +96,7 @@ class PulseListener(object):
         queues_routes: List[PulseBinding],
         user,
         password,
-        virtualhost,
+        virtualhost="",
     ):
         self.queue_name = output_queue_name
         self.queues_routes = queues_routes
