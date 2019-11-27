@@ -134,10 +134,9 @@ class MessageBus(object):
                 new_message = method(message)
 
             if output_name is not None:
-                if not new_message:
+                if new_message:
+                    await self.send(output_name, new_message)
+                else:
                     logger.info(
                         "Skipping new message creation: no result", message=message
                     )
-                    continue
-
-                await self.send(output_name, new_message)
