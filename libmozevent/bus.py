@@ -64,8 +64,7 @@ class MessageBus(object):
 
         if isinstance(queue, RedisQueue):
             async with AsyncRedis() as redis:
-                nb = await redis.rpush(queue.name, pickle.dumps(payload))
-                logger.info("Put new item in redis queue", queue=queue.name, nb=nb)
+                await redis.rpush(queue.name, pickle.dumps(payload))
 
         elif isinstance(queue, asyncio.Queue):
             await queue.put(payload)
@@ -90,7 +89,6 @@ class MessageBus(object):
             async with AsyncRedis() as redis:
                 _, payload = await redis.blpop(queue.name)
                 assert isinstance(payload, bytes)
-                logger.info("Read item from redis queue", queue=queue.name)
                 try:
                     return pickle.loads(payload)
                 except Exception as e:
