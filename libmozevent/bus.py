@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import pickle
 from queue import Empty
+from typing import Callable
 
 import aioredis
 import structlog
@@ -111,7 +112,13 @@ class MessageBus(object):
 
             return await _get()
 
-    async def run(self, method, input_name, output_names=[], sequential=True):
+    async def run(
+        self,
+        method: Callable,
+        input_name: str,
+        output_names: list = [],
+        sequential: bool = True,
+    ):
         """
         Pass messages from input to output
         Optionally applies some conversions methods
