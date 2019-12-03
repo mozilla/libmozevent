@@ -5,13 +5,14 @@
 
 import asyncio
 import json
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import aioamqp
 import structlog
 
 logger = structlog.get_logger(__name__)
 
+BusQueue = str
 Queue = str
 Route = str
 PulseBinding = Tuple[Queue, List[Route]]
@@ -92,13 +93,11 @@ class PulseListener(object):
 
     def __init__(
         self,
-        output_queue_name,
-        queues_routes: List[PulseBinding],
+        queues_routes: Dict[BusQueue, List[PulseBinding]],
         user,
         password,
         virtualhost="/",
     ):
-        self.queue_name = output_queue_name
         self.queues_routes = queues_routes
         self.user = user
         self.password = password
@@ -106,16 +105,21 @@ class PulseListener(object):
 
     def register(self, bus):
         self.bus = bus
-        self.bus.add_queue(self.queue_name)
+        for name in self.queues_routes:
+            self.bus.add_queue(name)
 
     async def connect(self):
-        protocol = await create_pulse_listener(
-            self.user,
-            self.password,
-            self.queues_routes,
-            self.got_message,
-            self.virtualhost,
-        )
+        listeners = [
+            create_pulse_listener(
+                self.user,
+                self.password,
+                queues_routes,
+                self.build_callback(bus_queue),
+                self.virtualhost,
+            )
+            for bus_queue, queues_routes in self.queues_routes.items()
+        ]
+        protocol = await asyncio.gather(*listeners)
         logger.info(
             "Worker starts consuming messages", queues_routes=self.queues_routes
         )
@@ -130,33 +134,37 @@ class PulseListener(object):
 
                 # Check pulse server is still connected
                 # AmqpClosedConnection will be thrown otherwise
-                await pulse.ensure_open()
+                await asyncio.gather(p.ensure_open() for p in pulse)
                 await asyncio.sleep(7)
-            except (aioamqp.AmqpClosedConnection, OSError) as e:
+            except (aioamqp.AmqpClosedConnection, OSError, RuntimeError) as e:
                 logger.exception("Reconnecting pulse client in 5 seconds", error=str(e))
                 pulse = None
                 await asyncio.sleep(5)
 
-    async def got_message(self, channel, body, envelope, properties):
+    def build_callback(self, bus_queue: BusQueue):
         """
-        Generic Pulse consumer callback
+        Build a generic Pulse consumer callback, attached to an inner queue
         """
-        assert isinstance(body, bytes), "Body is not in bytes"
 
-        # Build routing information to identify the payload source
-        routing = {
-            "exchange": envelope.exchange_name,
-            "key": envelope.routing_key,
-            "other_routes": properties.headers.get("CC", []),
-        }
+        async def got_message(channel, body, envelope, properties):
+            assert isinstance(body, bytes), "Body is not in bytes"
 
-        # Automatically decode json payloads
-        if properties.content_type == "application/json":
-            body = json.loads(body)
+            # Build routing information to identify the payload source
+            routing = {
+                "exchange": envelope.exchange_name,
+                "key": envelope.routing_key,
+                "other_routes": properties.headers.get("CC", []),
+            }
 
-        # Push the message in the message bus
-        logger.debug("Received a pulse message")
-        await self.bus.send(self.queue_name, {"routing": routing, "body": body})
+            # Automatically decode json payloads
+            if properties.content_type == "application/json":
+                body = json.loads(body)
 
-        # Ack the message so it is removed from the broker's queue
-        await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
+            # Push the message in the message bus
+            logger.debug("Received a pulse message")
+            await self.bus.send(bus_queue, {"routing": routing, "body": body})
+
+            # Ack the message so it is removed from the broker's queue
+            await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
+
+        return got_message
