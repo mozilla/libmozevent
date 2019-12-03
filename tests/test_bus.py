@@ -178,7 +178,7 @@ async def test_conversion():
 
     # Convert all strings from input in uppercase
     assert bus.queues["input"].qsize() == 2
-    task = asyncio.create_task(bus.run(lambda x: x.upper(), "input", "output"))
+    task = asyncio.create_task(bus.run(lambda x: x.upper(), "input", ["output"]))
 
     await bus.receive("output") == "lowercase"
     await bus.receive("output") == "TEST X"
@@ -238,6 +238,40 @@ async def test_run_async_parallel():
         1: True,
         2: True,
     }
+
+
+@pytest.mark.asyncio
+async def test_dispatch():
+    """
+    Test message dispatch from a queue to 2 queues
+    """
+    bus = MessageBus()
+    bus.add_queue("input")
+    # limit size to immediately stop execution for unit test
+    bus.add_queue("output1", maxsize=3)
+    bus.add_queue("output2", maxsize=3)
+    assert isinstance(bus.queues["input"], asyncio.Queue)
+    assert isinstance(bus.queues["output1"], asyncio.Queue)
+    assert isinstance(bus.queues["output2"], asyncio.Queue)
+    assert bus.queues["input"].qsize() == 0
+    assert bus.queues["output1"].qsize() == 0
+    assert bus.queues["output2"].qsize() == 0
+
+    await bus.send("input", 1)
+    await bus.send("input", 2)
+
+    # Convert all strings from input in uppercase
+    assert bus.queues["input"].qsize() == 2
+    task = asyncio.create_task(bus.dispatch("input", ["output1", "output2"]))
+
+    await bus.receive("output1") == 1
+    await bus.receive("output2") == 1
+    await bus.receive("output1") == 2
+    await bus.receive("output2") == 2
+    task.cancel()
+    assert bus.queues["input"].qsize() == 0
+    assert bus.queues["output1"].qsize() == 0
+    assert bus.queues["output2"].qsize() == 0
 
 
 @pytest.mark.asyncio
