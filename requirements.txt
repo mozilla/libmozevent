@@ -1,4 +1,4 @@
-aioamqp
+aioamqp>=0.13.0
 aioredis
 libmozdata
 Logbook
