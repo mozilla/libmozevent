@@ -368,7 +368,9 @@ def mock_taskcluster():
     Mock Tasklcuster authentication
     """
     tc = TaskclusterConfig("http://taskcluster.test")
-    tc.auth()
-    tc.options["maxRetries"] = 1
 
+    # Force options to avoid auto proxy detection
+    tc.auth("client", "token")
+    tc.default_url = "http://taskcluster.test"
+    tc.options["maxRetries"] = 1
     return tc
