@@ -22,7 +22,7 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     monitoring.notify = NotifyMock
 
     # No report sent, since we haven't collected any stats yet.
-    monitoring.send_report()
+    await monitoring.send_report()
     assert NotifyMock.email_obj == {}
 
     # Queue throws exception, remove task from queue.
@@ -34,7 +34,7 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     assert bus.queues["testqueue"].qsize() == 5
 
     # No report sent, since we haven't collected any stats yet.
-    monitoring.send_report()
+    await monitoring.send_report()
     assert NotifyMock.email_obj == {}
 
     # Task is completed.
@@ -112,7 +112,7 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
 """
 
-    monitoring.send_report()
+    await monitoring.send_report()
     assert NotifyMock.email_obj["address"] == "pinco@pallino"
     assert NotifyMock.email_obj["subject"] == "Pulse listener tasks"
     assert NotifyMock.email_obj["content"] == content
@@ -136,7 +136,7 @@ async def test_report_all_completed(QueueMock, NotifyMock, mock_taskcluster):
     await monitoring.check_task()
 
     # No email sent, since all tasks were successful.
-    monitoring.send_report()
+    await monitoring.send_report()
     assert NotifyMock.email_obj == {}
     assert monitoring.stats == {}
 
@@ -207,7 +207,7 @@ async def test_monitoring_whiteline_between_failed_and_hook(
 
 * [Task-failed](http://taskcluster.test/tasks/Task-failed)"""
 
-    monitoring.send_report()
+    await monitoring.send_report()
     assert NotifyMock.email_obj["address"] == "pinco@pallino"
     assert NotifyMock.email_obj["subject"] == "Pulse listener tasks"
     assert NotifyMock.email_obj["content"] == content
@@ -235,7 +235,7 @@ async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskclust
     assert bus.queues["testqueue"].qsize() == 2
 
     # The retried task should maintain the original taskGroupId
-    old_task = monitoring.queue.task("Task-exception-retry:2")
+    old_task = await monitoring.queue.task("Task-exception-retry:2")
     new_task_id, new_task = monitoring.queue.created_tasks[0]
     assert new_task_id != "Task-exception-retry:2"
     assert new_task != old_task
@@ -262,15 +262,15 @@ async def test_monitoring_restartable(QueueMock, IndexMock, mock_taskcluster):
 
     # Check a failed task is restartable
     # when the monitoring flag is set
-    assert monitoring.is_restartable("Task-failed-restart")
+    assert await monitoring.is_restartable("Task-failed-restart")
 
     # Check a failed task is not restartable
     # when the monitoring flag is not set
-    assert not monitoring.is_restartable("Task-failed-nope")
+    assert not await monitoring.is_restartable("Task-failed-nope")
 
     # Check a completed task is not restartable
-    assert not monitoring.is_restartable("Task-completed-restart")
-    assert not monitoring.is_restartable("Task-completed-nope")
+    assert not await monitoring.is_restartable("Task-completed-restart")
+    assert not await monitoring.is_restartable("Task-completed-nope")
 
     # Check a failed task is restarted by the monitoring flow
     assert len(monitoring.queue.created_tasks) == 0

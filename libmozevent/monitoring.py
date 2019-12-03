@@ -40,9 +40,9 @@ class Monitoring(object):
         self.emails = emails
 
         # Setup Taskcluster services
-        self.notify = taskcluster_config.get_service("notify")
-        self.queue = taskcluster_config.get_service("queue")
-        self.index = taskcluster_config.get_service("index")
+        self.notify = taskcluster_config.get_service("notify", use_async=True)
+        self.queue = taskcluster_config.get_service("queue", use_async=True)
+        self.index = taskcluster_config.get_service("index", use_async=True)
         self.taskcluster_base_url = taskcluster_config.default_url
 
     def register(self, bus):
@@ -70,7 +70,7 @@ class Monitoring(object):
                 await self.check_task()
 
                 # Sleep a bit before trying a new task
-                await asyncio.sleep(1)
+                await asyncio.sleep(7)
 
             # Send report when timeout is reached
             self.send_report()
@@ -84,7 +84,7 @@ class Monitoring(object):
 
         # Get its status
         try:
-            status = self.queue.status(task_id)
+            status = await self.queue.status(task_id)
         except Exception as e:
             logger.warn(
                 "Taskcluster queue status failure for {} : {}".format(task_id, e)
@@ -100,7 +100,7 @@ class Monitoring(object):
                 await self.retry_task(group_id, hook_id, task_id)
 
             # Lookup the failed details
-            if task_status == "failed" and self.is_restartable(task_id):
+            if task_status == "failed" and await self.is_restartable(task_id):
                 logger.info("Failed task is restartable", task_id=task_id)
                 await self.retry_task(group_id, hook_id, task_id)
 
@@ -113,7 +113,7 @@ class Monitoring(object):
             # Push back into queue so it get checked later on
             await self.bus.send(self.queue_name, (group_id, hook_id, task_id))
 
-    def is_restartable(self, task_id):
+    async def is_restartable(self, task_id):
         """
         A task is restartable if its indexed state using task id
         has a monitoring_restart field set to True
@@ -121,7 +121,7 @@ class Monitoring(object):
         # Load the indexed data
         task_path = TASKCLUSTER_NAMESPACE.format(task_id=task_id)
         try:
-            index = self.index.findTask(task_path)
+            index = await self.index.findTask(task_path)
         except Exception as e:
             logger.info("Task not found in index", task=task_id, error=str(e))
             return False
@@ -139,7 +139,7 @@ class Monitoring(object):
         https://docs.taskcluster.net/docs/reference/platform/taskcluster-queue/references/api#rerunTask
         """
         # Fetch task definition
-        definition = self.queue.task(task_id)
+        definition = await self.queue.task(task_id)
 
         # Update timestamps
         date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
@@ -165,14 +165,14 @@ class Monitoring(object):
         # Trigger a new task with the updated definition
         new_task_id = slugId()
         logger.info("Retry task", old_task=task_id, new_task=new_task_id)
-        self.queue.createTask(new_task_id, definition)
+        await self.queue.createTask(new_task_id, definition)
 
         # Enqueue task to check later
         await self.bus.send(self.queue_name, (group_id, hook_id, new_task_id))
 
         return new_task_id
 
-    def send_report(self):
+    async def send_report(self):
         """
         Build a report using current stats and send it through
         Taskcluster Notify
@@ -208,7 +208,7 @@ class Monitoring(object):
             # Send to admins
             logger.info("Sending email to admins")
             for email in self.emails:
-                self.notify.email(
+                await self.notify.email(
                     {
                         "address": email,
                         "subject": "Pulse listener tasks",

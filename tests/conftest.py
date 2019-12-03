@@ -34,13 +34,13 @@ def QueueMock():
         def add_task_in_group(self, group_id, **task):
             self.groups[group_id].append(task)
 
-        def status(self, task_id):
+        async def status(self, task_id):
             for status in ["failed", "completed", "exception", "pending"]:
                 if status in task_id:
                     return {"status": {"state": status}}
             assert False
 
-        def task(self, task_id):
+        async def task(self, task_id):
             now = datetime.utcnow()
 
             if "retry:" in task_id:
@@ -69,23 +69,8 @@ def QueueMock():
                 "workerType": "niceWorker",
             }
 
-        def createTask(self, task_id, payload):
+        async def createTask(self, task_id, payload):
             self.created_tasks.append((task_id, payload))
-
-        def listTaskGroup(self, group_id, **kwargs):
-            return {
-                "taskGroupId": group_id,
-                "tasks": [
-                    {
-                        "task": {
-                            "metadata": {"name": task.get("name", "unknown")},
-                            "payload": {"env": task.get("env", {})},
-                        }
-                    }
-                    for task in self.groups.get(group_id, [])
-                ],
-                "continuationToken": None,
-            }
 
     return Mock()
 
@@ -96,7 +81,7 @@ def NotifyMock():
         def __init__(self):
             self.email_obj = {}
 
-        def email(self, obj):
+        async def email(self, obj):
             self.email_obj.update(obj)
 
     return Mock()
@@ -121,7 +106,7 @@ def IndexMock():
         def __init__(self):
             pass
 
-        def findTask(self, path):
+        async def findTask(self, path):
             assert path.startswith("project.releng.services.tasks.")
             failed = "failed" in path
             return {
