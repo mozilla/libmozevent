@@ -70,7 +70,7 @@ class Monitoring(object):
                 await self.check_task()
 
                 # Sleep a bit before trying a new task
-                await asyncio.sleep(1)
+                await asyncio.sleep(7)
 
             # Send report when timeout is reached
             self.send_report()
