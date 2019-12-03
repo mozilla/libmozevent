@@ -111,19 +111,20 @@ class MessageBus(object):
 
             return await _get()
 
-    async def run(self, method, input_name, output_name=None, sequential=True):
+    async def run(self, method, input_name, output_names=[], sequential=True):
         """
         Pass messages from input to output
         Optionally applies some conversions methods
         This is also the "ideal" usage between 2 queues
         """
         assert input_name in self.queues, "Missing queue {}".format(input_name)
-        assert (
-            output_name is None or output_name in self.queues
-        ), "Missing queue {}".format(output_name)
+        for output_name in output_names:
+            assert (
+                output_name is None or output_name in self.queues
+            ), "Missing queue {}".format(output_name)
 
         assert (
-            sequential is True or output_name is None
+            sequential is True or len(output_names) == 0
         ), "Parallel run is not supported yet when an output queue is defined"
 
         while True:
@@ -139,10 +140,13 @@ class MessageBus(object):
                 assert sequential, "Can't run normal functions in parallel"
                 new_message = method(message)
 
-            if output_name is not None:
+            for output_name in output_names:
                 if new_message:
                     await self.send(output_name, new_message)
                 else:
                     logger.info(
                         "Skipping new message creation: no result", message=message
                     )
+
+    async def dispatch(self, input_name: str, output_names: list):
+        await self.run(lambda m: m, input_name, output_names)
