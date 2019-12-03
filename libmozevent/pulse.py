@@ -4,14 +4,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import asyncio
+import fnmatch
+import itertools
 import json
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import aioamqp
 import structlog
 
 logger = structlog.get_logger(__name__)
 
+BusQueue = str
 Queue = str
 Route = str
 PulseBinding = Tuple[Queue, List[Route]]
@@ -92,13 +95,11 @@ class PulseListener(object):
 
     def __init__(
         self,
-        output_queue_name,
-        queues_routes: List[PulseBinding],
+        queues_routes: Dict[BusQueue, List[PulseBinding]],
         user,
         password,
         virtualhost="/",
     ):
-        self.queue_name = output_queue_name
         self.queues_routes = queues_routes
         self.user = user
         self.password = password
@@ -106,13 +107,14 @@ class PulseListener(object):
 
     def register(self, bus):
         self.bus = bus
-        self.bus.add_queue(self.queue_name)
+        for name in self.queues_routes:
+            self.bus.add_queue(name)
 
     async def connect(self):
         protocol = await create_pulse_listener(
             self.user,
             self.password,
-            self.queues_routes,
+            itertools.chain(*self.queues_routes.values()),
             self.got_message,
             self.virtualhost,
         )
@@ -137,9 +139,33 @@ class PulseListener(object):
                 pulse = None
                 await asyncio.sleep(5)
 
+    def find_matching_queues(self, payload_exchange: str, payload_routes: List[bytes]):
+        """
+        Detect all the bus that match the current routing
+        """
+
+        def _match(exchange, route):
+
+            # Exchanges must match exactly
+            if payload_exchange != exchange:
+                return False
+
+            # One of the pauload routes must match the current route
+            route = route.replace("#", "*").encode("utf-8")
+            return len(fnmatch.filter(payload_routes, route)) > 0
+
+        return {
+            bus_queue
+            for bus_queue, queue_routes in self.queues_routes.items()
+            for pulse_exchange, pulse_routes in queue_routes
+            for pulse_route in pulse_routes
+            if _match(pulse_exchange, pulse_route)
+        }
+
     async def got_message(self, channel, body, envelope, properties):
         """
-        Generic Pulse consumer callback
+        Generic Pulse consumer callback that detects all matching bus queues
+        to automatically route the pulse messages
         """
         assert isinstance(body, bytes), "Body is not in bytes"
 
@@ -156,7 +182,9 @@ class PulseListener(object):
 
         # Push the message in the message bus
         logger.debug("Received a pulse message")
-        await self.bus.send(self.queue_name, {"routing": routing, "body": body})
+        routes = [routing["key"].encode("utf-8")] + routing["other_routes"]
+        for bus_queue in self.find_matching_queues(routing["exchange"], routes):
+            await self.bus.send(bus_queue, {"routing": routing, "body": body})
 
         # Ack the message so it is removed from the broker's queue
         await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
