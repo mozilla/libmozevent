@@ -8,7 +8,7 @@ from libmozevent.monitoring import Monitoring
 @pytest.mark.asyncio
 async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
+    monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
     await bus.send("testqueue", ("Group1", "Hook1", "Task-invalid"))
     await bus.send("testqueue", ("Group1", "Hook1", "Task-pending"))
@@ -123,7 +123,7 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 @pytest.mark.asyncio
 async def test_report_all_completed(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
+    monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
     await bus.send("testqueue", ("Group1", "Hook1", "Task1-completed"))
     await bus.send("testqueue", ("Group1", "Hook1", "Task2-completed"))
@@ -146,7 +146,7 @@ async def test_monitoring_whiteline_between_failed_and_hook(
     QueueMock, NotifyMock, mock_taskcluster
 ):
     bus = MessageBus()
-    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
+    monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
     await bus.send("testqueue", ("Group1", "Hook1", "Task-failed"))
     await bus.send("testqueue", ("Group1", "Hook2", "Task-failed"))
@@ -218,7 +218,7 @@ async def test_monitoring_whiteline_between_failed_and_hook(
 @pytest.mark.asyncio
 async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
+    monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
     await bus.send("testqueue", ("Group1", "Hook1", "Task-exception-retry:2"))
     await bus.send("testqueue", ("Group1", "Hook2", "Task-exception-retry:0"))
@@ -254,7 +254,7 @@ async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskclust
 @pytest.mark.asyncio
 async def test_monitoring_restartable(QueueMock, IndexMock, mock_taskcluster):
     bus = MessageBus()
-    monitoring = Monitoring("testqueue", ["pinco@pallino"], 1)
+    monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
 
     monitoring.index = IndexMock

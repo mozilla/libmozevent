@@ -15,9 +15,9 @@ from unittest.mock import MagicMock
 import hglib
 import pytest
 import responses
+from taskcluster.helper import TaskclusterConfig
 from taskcluster.utils import stringDate
 
-from libmozevent import taskcluster_config
 from libmozevent.mercurial import Repository
 from libmozevent.phabricator import PhabricatorActions
 
@@ -367,10 +367,8 @@ def mock_taskcluster():
     """
     Mock Tasklcuster authentication
     """
-    taskcluster_config.options = {"rootUrl": "http://taskcluster.test"}
+    tc = TaskclusterConfig("http://taskcluster.test")
+    tc.auth()
+    tc.options["maxRetries"] = 1
 
-    responses.add(
-        responses.GET,
-        "https://queue.taskcluster.net/v1/task-group/aGroup/list",
-        json={"taskGroupId": "aGroup", "tasks": []},
-    )
+    return tc
