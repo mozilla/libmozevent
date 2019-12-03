@@ -3,9 +3,8 @@ import asyncio
 from datetime import datetime, timedelta
 
 import structlog
+from taskcluster.helper import TaskclusterConfig
 from taskcluster.utils import slugId, stringDate
-
-from libmozevent import taskcluster_config
 
 logger = structlog.get_logger(__name__)
 
@@ -26,11 +25,14 @@ class Monitoring(object):
     every X seconds
     """
 
-    def __init__(self, queue_name, emails, period):
-        assert isinstance(queue_name, str)
-        assert isinstance(period, int)
+    def __init__(
+        self,
+        taskcluster_config: TaskclusterConfig,
+        queue_name: str,
+        emails: list,
+        period: int,
+    ):
         assert period > 0
-        assert isinstance(emails, list)
         assert len(emails) > 0
         self.queue_name = queue_name
         self.period = period
