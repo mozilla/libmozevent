@@ -15,7 +15,7 @@ GROUP_MD = """
 {:.2f}% of all tasks ({}/{})
 
 """
-TASK_MD = "* [{0}](https://tools.taskcluster.net/task-inspector/#{0})"
+TASK_MD = "* [{task_id}]({base_url}/tasks/{task_id})"
 TASKCLUSTER_NAMESPACE = "project.releng.services.tasks.{task_id}"
 
 
@@ -43,6 +43,7 @@ class Monitoring(object):
         self.notify = taskcluster_config.get_service("notify")
         self.queue = taskcluster_config.get_service("queue")
         self.index = taskcluster_config.get_service("index")
+        self.taskcluster_base_url = taskcluster_config.default_url
 
     def register(self, bus):
         self.bus = bus
@@ -195,7 +196,12 @@ class Monitoring(object):
                 content += GROUP_MD.format(
                     status, 100.0 * nb_tasks / total, nb_tasks, total
                 )
-                content += "\n".join([TASK_MD.format(task) for task in tasks])
+                content += "\n".join(
+                    [
+                        TASK_MD.format(task_id=task, base_url=self.taskcluster_base_url)
+                        for task in tasks
+                    ]
+                )
             contents.append(content)
 
         if len(contents):
