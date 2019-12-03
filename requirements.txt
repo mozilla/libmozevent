@@ -5,4 +5,4 @@ Logbook
 python-hglib
 pytoml
 structlog
-taskcluster==24.0.0
+taskcluster>=24.0.0
