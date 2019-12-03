@@ -76,8 +76,8 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
 66.67% of all tasks (2/3)
 
-* [Task1-completed](https://tools.taskcluster.net/task-inspector/#Task1-completed)
-* [Task2-completed](https://tools.taskcluster.net/task-inspector/#Task2-completed)
+* [Task1-completed](http://taskcluster.test/tasks/Task1-completed)
+* [Task2-completed](http://taskcluster.test/tasks/Task2-completed)
 
 ## exception
 
@@ -89,7 +89,7 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
 33.33% of all tasks (1/3)
 
-* [Task-failed](https://tools.taskcluster.net/task-inspector/#Task-failed)
+* [Task-failed](http://taskcluster.test/tasks/Task-failed)
 
 # Hook2 tasks for the last period
 
@@ -104,7 +104,7 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
 100.00% of all tasks (1/1)
 
-* [Task-exception](https://tools.taskcluster.net/task-inspector/#Task-exception)
+* [Task-exception](http://taskcluster.test/tasks/Task-exception)
 
 ## failed
 
@@ -184,7 +184,7 @@ async def test_monitoring_whiteline_between_failed_and_hook(
 
 100.00% of all tasks (1/1)
 
-* [Task-failed](https://tools.taskcluster.net/task-inspector/#Task-failed)
+* [Task-failed](http://taskcluster.test/tasks/Task-failed)
 
 # Hook2 tasks for the last period
 
@@ -205,7 +205,7 @@ async def test_monitoring_whiteline_between_failed_and_hook(
 
 100.00% of all tasks (1/1)
 
-* [Task-failed](https://tools.taskcluster.net/task-inspector/#Task-failed)"""
+* [Task-failed](http://taskcluster.test/tasks/Task-failed)"""
 
     monitoring.send_report()
     assert NotifyMock.email_obj["address"] == "pinco@pallino"
