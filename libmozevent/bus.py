@@ -40,7 +40,9 @@ class MessageBus(object):
         self.redis_enabled = "REDIS_URL" in os.environ
         logger.info("Redis support", enabled=self.redis_enabled and "yes" or "no")
 
-    def add_queue(self, name, mp=False, redis=False, maxsize=-1):
+    def add_queue(
+        self, name: str, mp: bool = False, redis: bool = False, maxsize: int = -1
+    ):
         """
         Create a new queue on the message bus
         * asyncio by default
@@ -48,7 +50,6 @@ class MessageBus(object):
         By default, there are no size limit enforced (maxsize=-1)
         """
         assert name not in self.queues, "Queue {} already setup".format(name)
-        assert isinstance(maxsize, int)
         if self.redis_enabled and redis:
             self.queues[name] = RedisQueue(f"libmozevent:{name}")
         elif mp:
