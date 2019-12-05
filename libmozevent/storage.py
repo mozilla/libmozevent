@@ -32,7 +32,7 @@ class EphemeralStorage:
                     self.name, min=int(time.time()), max=math.inf
                 )
                 for key in keys:
-                    key = key.decode("ascii")
+                    key = key.decode("utf-8")
                     self.cache[key] = pickle.loads(
                         await redis.get(self.name + ":" + key)
                     )
