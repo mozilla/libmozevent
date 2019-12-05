@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import pickle
 from queue import Empty
-from typing import Callable
+from typing import Any, Callable
 
 import aioredis
 import structlog
@@ -57,7 +57,7 @@ class MessageBus(object):
         else:
             self.queues[name] = asyncio.Queue(maxsize=maxsize)
 
-    async def send(self, name, payload):
+    async def send(self, name: str, payload: Any):
         """
         Send a message on a specific queue
         """
@@ -77,7 +77,7 @@ class MessageBus(object):
                 None, lambda: queue.put(payload)
             )
 
-    async def receive(self, name):
+    async def receive(self, name: str):
         """
         Wait for a message on a specific queue
         This is a blocking operation
