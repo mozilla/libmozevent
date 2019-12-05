@@ -7,6 +7,7 @@ import fcntl
 import os
 import time
 
+import aioredis
 import hglib
 import structlog
 
@@ -152,3 +153,17 @@ def robust_checkout(repo_url, repo_dir, branch=b"tip"):
         branch=branch,
     )
     hg_run(cmd)
+
+
+class AsyncRedis(object):
+    """
+    Async context manager to create a redis connection
+    """
+
+    async def __aenter__(self):
+        self.conn = await aioredis.create_redis(os.environ["REDIS_URL"])
+        return self.conn
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self.conn.close()
+        await self.conn.wait_closed()
