@@ -47,6 +47,7 @@ class EphemeralStorage:
 
         if self.redis_enabled:
             async with AsyncRedis() as redis:
+                await redis.expire(self.name, self.expiration)
                 await redis.set(
                     self.name + ":" + key, pickle.dumps(value), expire=self.expiration
                 )
