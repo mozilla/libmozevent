@@ -49,7 +49,7 @@ class MessageBus(object):
         * multiprocessing when mp=True
         By default, there are no size limit enforced (maxsize=-1)
         """
-        assert name not in self.queues, "Queue {} already setup".format(name)
+        assert name not in self.queues, f"Queue {name} already setup"
         if self.redis_enabled and redis:
             self.queues[name] = RedisQueue(f"libmozevent:{name}")
         elif mp:
@@ -61,7 +61,7 @@ class MessageBus(object):
         """
         Send a message on a specific queue
         """
-        assert name in self.queues, "Missing queue {}".format(name)
+        assert name in self.queues, f"Missing queue {name}"
         queue = self.queues[name]
 
         if isinstance(queue, RedisQueue):
@@ -82,7 +82,7 @@ class MessageBus(object):
         Wait for a message on a specific queue
         This is a blocking operation
         """
-        assert name in self.queues, "Missing queue {}".format(name)
+        assert name in self.queues, f"Missing queue {name}"
         queue = self.queues[name]
 
         logger.debug("Wait for message on bus", queue=name, instance=queue)
@@ -125,11 +125,11 @@ class MessageBus(object):
         Optionally applies some conversions methods
         This is also the "ideal" usage between 2 queues
         """
-        assert input_name in self.queues, "Missing queue {}".format(input_name)
+        assert input_name in self.queues, f"Missing queue {input_name}"
         for output_name in output_names:
             assert (
                 output_name is None or output_name in self.queues
-            ), "Missing queue {}".format(output_name)
+            ), f"Missing queue {output_name}"
 
         assert (
             sequential is True or len(output_names) == 0
