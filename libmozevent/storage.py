@@ -34,7 +34,7 @@ class EphemeralStorage:
                 for key in keys:
                     key = key.decode("utf-8")
                     self.cache[key] = pickle.loads(
-                        await redis.get(self.name + ":" + key)
+                        await redis.get(f"{self.name}:{key}")
                     )
 
         return self
@@ -52,7 +52,7 @@ class EphemeralStorage:
             async with AsyncRedis() as redis:
                 await redis.expire(self.name, self.expiration)
                 await redis.set(
-                    self.name + ":" + key, pickle.dumps(value), expire=self.expiration
+                    f"{self.name}:{key}", pickle.dumps(value), expire=self.expiration
                 )
                 await redis.zadd(self.name, int(time.time()) + self.expiration, key)
 
