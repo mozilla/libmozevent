@@ -39,6 +39,9 @@ class EphemeralStorage:
 
         return self
 
+    def __len__(self):
+        return len(self.cache)
+
     def get(self, key):
         return self.cache[key]
 
