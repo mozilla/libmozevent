@@ -8,26 +8,13 @@ import pickle
 from queue import Empty
 from typing import Any, Callable
 
-import aioredis
 import structlog
+
+from libmozevent.utils import AsyncRedis
 
 logger = structlog.get_logger(__name__)
 
 RedisQueue = collections.namedtuple("RedisQueue", "name")
-
-
-class AsyncRedis(object):
-    """
-    Async context manager to create a redis connection
-    """
-
-    async def __aenter__(self):
-        self.conn = await aioredis.create_redis(os.environ["REDIS_URL"])
-        return self.conn
-
-    async def __aexit__(self, exc_type, exc, tb):
-        self.conn.close()
-        await self.conn.wait_closed()
 
 
 class MessageBus(object):
