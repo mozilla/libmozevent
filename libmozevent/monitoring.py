@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 from datetime import datetime, timedelta
+from typing import Dict, List
 
 import structlog
 from taskcluster.helper import TaskclusterConfig
@@ -35,7 +36,7 @@ class Monitoring(object):
         assert len(emails) > 0
         self.queue_name = queue_name
         self.period = period
-        self.stats = {}
+        self.stats: Dict[str, Dict[str, List[str]]] = {}
         self.emails = emails
 
         # Setup Taskcluster services
