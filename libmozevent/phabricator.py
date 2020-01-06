@@ -8,10 +8,6 @@ from libmozdata.phabricator import PhabricatorAPI
 
 logger = structlog.get_logger(__name__)
 
-PhabricatorPatch = collections.namedtuple(
-    "Diff", "id, phid, patch, base_revision, commits"
-)
-
 
 class PhabricatorBuildState(enum.Enum):
     Queued = 1
