@@ -73,9 +73,14 @@ tasks:
         command:
           - sh
           - -lxce
-          - "git clone --quiet ${repository} /src && cd /src && git checkout ${head_rev} -b checks &&
+          - "apt-get -qq update &&
+            apt-get -qq install -y redis-server &&
+            git clone --quiet ${repository} /src && cd /src && git checkout ${head_rev} -b checks &&
             pip install -q . && pip install -q -r requirements-dev.txt &&
             /src/docker/bootstrap.sh &&
+            pytest -v &&
+            export REDIS_URL='redis://localhost:6379/' &&
+            redis-server --daemonize yes &&
             pytest -v"
       metadata:
         name: "libmozevent checks: unit tests"
