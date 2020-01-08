@@ -40,8 +40,11 @@ class EphemeralStorage:
                 )
 
     async def rem(self, key):
-        del self.cache[key]
-
         if self.redis_enabled:
             async with AsyncRedis() as redis:
                 await redis.delete(self._redis_key(key))
+
+        try:
+            del self.cache[key]
+        except KeyError:
+            pass

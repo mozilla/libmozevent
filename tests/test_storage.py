@@ -88,3 +88,24 @@ async def test_ephemeral_storage_no_expiration():
     storage = EphemeralStorage("my_third_set", 60)
 
     assert await storage.get("my_key") == obj
+
+
+@pytest.mark.asyncio
+async def test_ephemeral_storage_no_expiration_remove():
+    """
+    Test deleting a key after the recreation of a Storage.
+    """
+    obj = {"an": "object"}
+
+    storage = EphemeralStorage("my_third_set", 60)
+
+    await storage.set("my_key", obj)
+
+    got_obj = await storage.get("my_key")
+    assert got_obj == obj
+
+    await asyncio.sleep(1)
+
+    storage = EphemeralStorage("my_third_set", 60)
+
+    await storage.rem("my_key")
