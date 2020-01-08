@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 from datetime import datetime, timedelta
+from typing import Dict, List
 
 import structlog
 from taskcluster.helper import TaskclusterConfig
@@ -16,7 +17,6 @@ GROUP_MD = """
 
 """
 TASK_MD = "* [{task_id}]({base_url}/tasks/{task_id})"
-TASKCLUSTER_NAMESPACE = "project.releng.services.tasks.{task_id}"
 
 
 class Monitoring(object):
@@ -36,13 +36,12 @@ class Monitoring(object):
         assert len(emails) > 0
         self.queue_name = queue_name
         self.period = period
-        self.stats = {}
+        self.stats: Dict[str, Dict[str, List[str]]] = {}
         self.emails = emails
 
         # Setup Taskcluster services
         self.notify = taskcluster_config.get_service("notify", use_async=True)
         self.queue = taskcluster_config.get_service("queue", use_async=True)
-        self.index = taskcluster_config.get_service("index", use_async=True)
         self.taskcluster_base_url = taskcluster_config.default_url
 
     def register(self, bus):
@@ -99,11 +98,6 @@ class Monitoring(object):
             if task_status == "exception":
                 await self.retry_task(group_id, hook_id, task_id)
 
-            # Lookup the failed details
-            if task_status == "failed" and await self.is_restartable(task_id):
-                logger.info("Failed task is restartable", task_id=task_id)
-                await self.retry_task(group_id, hook_id, task_id)
-
             # Add to report and stop processing that task
             if hook_id not in self.stats:
                 self.stats[hook_id] = {"failed": [], "completed": [], "exception": []}
@@ -112,22 +106,6 @@ class Monitoring(object):
         else:
             # Push back into queue so it get checked later on
             await self.bus.send(self.queue_name, (group_id, hook_id, task_id))
-
-    async def is_restartable(self, task_id):
-        """
-        A task is restartable if its indexed state using task id
-        has a monitoring_restart field set to True
-        """
-        # Load the indexed data
-        task_path = TASKCLUSTER_NAMESPACE.format(task_id=task_id)
-        try:
-            index = await self.index.findTask(task_path)
-        except Exception as e:
-            logger.info("Task not found in index", task=task_id, error=str(e))
-            return False
-
-        # Restart when monitoring_restart is set
-        return index["data"].get("monitoring_restart") is True
 
     async def retry_task(self, group_id, hook_id, task_id):
         """
