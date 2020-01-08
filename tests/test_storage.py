@@ -11,30 +11,36 @@ from libmozevent.storage import EphemeralStorage
 async def test_ephemeral_storage():
     obj1 = {"an": "object"}
     obj2 = {"another": "object"}
+    obj3 = {"yet": {"another": "object"}}
 
-    storage = await EphemeralStorage.create("my_first_set", 60)
+    storage = EphemeralStorage("my_first_set", 60)
 
-    assert len(storage) == 0
     await storage.set("my_key1", obj1)
-    assert len(storage) == 1
     await storage.set("my_key2", obj2)
-    assert len(storage) == 2
+    await storage.set("my_key3", obj3)
 
-    got_obj1 = storage.get("my_key1")
+    got_obj1 = await storage.get("my_key1")
     assert got_obj1 == obj1
 
-    got_obj2 = storage.get("my_key2")
+    got_obj1 = await storage.get("my_key1")
+    assert got_obj1 == obj1
+
+    got_obj2 = await storage.get("my_key2")
     assert got_obj2 == obj2
+
+    with pytest.raises(KeyError):
+        await storage.get("my_key9")
 
     await storage.rem("my_key2")
 
-    assert len(storage) == 1
-
     with pytest.raises(KeyError):
-        storage.get("my_key2")
+        await storage.get("my_key2")
 
-    got_obj1 = storage.get("my_key1")
+    got_obj1 = await storage.get("my_key1")
     assert got_obj1 == obj1
+
+    got_obj3 = await storage.get("my_key3")
+    assert got_obj3 == obj3
 
 
 @pytest.mark.asyncio
@@ -44,22 +50,19 @@ async def test_ephemeral_storage_expiration():
     """
     obj = {"an": "object"}
 
-    storage = await EphemeralStorage.create("my_second_set", 1)
+    storage = EphemeralStorage("my_second_set", 1)
 
     await storage.set("my_key", obj)
-    assert len(storage) == 1
 
-    got_obj = storage.get("my_key")
+    got_obj = await storage.get("my_key")
     assert got_obj == obj
 
     await asyncio.sleep(1)
 
-    storage = await EphemeralStorage.create("my_second_set", 1)
-
-    assert len(storage) == 0
+    storage = EphemeralStorage("my_second_set", 1)
 
     with pytest.raises(KeyError):
-        storage.get("my_key")
+        await storage.get("my_key")
 
 
 @pytest.mark.asyncio
@@ -73,18 +76,15 @@ async def test_ephemeral_storage_no_expiration():
 
     obj = {"an": "object"}
 
-    storage = await EphemeralStorage.create("my_third_set", 60)
+    storage = EphemeralStorage("my_third_set", 60)
 
     await storage.set("my_key", obj)
-    assert len(storage) == 1
 
-    got_obj = storage.get("my_key")
+    got_obj = await storage.get("my_key")
     assert got_obj == obj
 
     await asyncio.sleep(1)
 
-    storage = await EphemeralStorage.create("my_third_set", 60)
+    storage = EphemeralStorage("my_third_set", 60)
 
-    assert len(storage) == 1
-
-    assert storage.get("my_key") == obj
+    assert await storage.get("my_key") == obj
