@@ -161,7 +161,7 @@ class AsyncRedis(object):
     """
 
     async def __aenter__(self):
-        self.conn = await aioredis.create_redis(os.environ["REDIS_URL"])
+        self.conn = await aioredis.create_redis_pool(os.environ["REDIS_URL"])
         return self.conn
 
     async def __aexit__(self, exc_type, exc, tb):
