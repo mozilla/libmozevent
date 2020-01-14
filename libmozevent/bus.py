@@ -3,14 +3,11 @@ import asyncio
 import collections
 import inspect
 import multiprocessing
-import os
 import pickle
 from queue import Empty
 from typing import Any, Callable
 
 import structlog
-
-from libmozevent.utils import AsyncRedis
 
 logger = structlog.get_logger(__name__)
 
@@ -22,10 +19,10 @@ class MessageBus(object):
     Communication bus between processes
     """
 
-    def __init__(self):
+    def __init__(self, redis_conn=None):
         self.queues = {}
-        self.redis_enabled = "REDIS_URL" in os.environ
-        logger.info("Redis support", enabled=self.redis_enabled and "yes" or "no")
+        self.redis_conn = redis_conn
+        logger.info("Redis support", enabled="yes" if redis_conn else "no")
 
     def add_queue(
         self, name: str, mp: bool = False, redis: bool = False, maxsize: int = -1
@@ -37,7 +34,7 @@ class MessageBus(object):
         By default, there are no size limit enforced (maxsize=-1)
         """
         assert name not in self.queues, f"Queue {name} already setup"
-        if self.redis_enabled and redis:
+        if self.redis_conn and redis:
             self.queues[name] = RedisQueue(f"libmozevent:{name}")
         elif mp:
             self.queues[name] = multiprocessing.Queue(maxsize=maxsize)
@@ -52,8 +49,7 @@ class MessageBus(object):
         queue = self.queues[name]
 
         if isinstance(queue, RedisQueue):
-            async with AsyncRedis() as redis:
-                await redis.rpush(queue.name, pickle.dumps(payload))
+            await self.redis_conn.rpush(queue.name, pickle.dumps(payload))
 
         elif isinstance(queue, asyncio.Queue):
             await queue.put(payload)
@@ -75,15 +71,14 @@ class MessageBus(object):
         logger.debug("Wait for message on bus", queue=name, instance=queue)
 
         if isinstance(queue, RedisQueue):
-            async with AsyncRedis() as redis:
-                _, payload = await redis.blpop(queue.name)
-                assert isinstance(payload, bytes)
-                try:
-                    return pickle.loads(payload)
-                except Exception as e:
-                    logger.error("Bad redis payload", error=str(e))
-                    await asyncio.sleep(1)
-                    return
+            _, payload = await self.redis_conn.blpop(queue.name)
+            assert isinstance(payload, bytes)
+            try:
+                return pickle.loads(payload)
+            except Exception as e:
+                logger.error("Bad redis payload", error=str(e))
+                await asyncio.sleep(1)
+                return
 
         elif isinstance(queue, asyncio.Queue):
             return await queue.get()

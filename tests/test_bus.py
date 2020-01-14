@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import multiprocessing
+import os
 
 import pytest
 
-from libmozevent.bus import MessageBus
+from libmozevent.bus import MessageBus, RedisQueue
+from libmozevent.utils import AsyncRedis
+
+QUEUE_TYPES = [{"mp": False, "redis": False}, {"mp": True, "redis": False}]
+if "REDIS_URL" in os.environ:
+    QUEUE_TYPES.append({"mp": False, "redis": True})
 
 
 def test_queue_creation():
@@ -33,61 +39,62 @@ def test_queue_creation():
     assert isinstance(bus.queues["different"], multiprocessing.queues.Queue)
 
 
+@pytest.mark.parametrize("queue_type", QUEUE_TYPES)
 @pytest.mark.asyncio
-async def test_message_passing_async():
+async def test_message_passing_async(queue_type):
     """
     Test sending & receiving messages on an async queue
     """
-    bus = MessageBus()
-    bus.add_queue("test")
-    assert isinstance(bus.queues["test"], asyncio.Queue)
 
-    await bus.send("test", {"payload": 1234})
-    await bus.send("test", {"another": "deadbeef"})
-    await bus.send("test", "covfefe")
-    assert bus.queues["test"].qsize() == 3
+    async def do_test(redis_conn=None):
+        bus = MessageBus(redis_conn)
+        bus.add_queue("test", mp=queue_type["mp"], redis=queue_type["redis"])
+        if not queue_type["mp"] and not queue_type["redis"]:
+            assert isinstance(bus.queues["test"], asyncio.Queue)
+        elif queue_type["mp"]:
+            assert isinstance(bus.queues["test"], multiprocessing.queues.Queue)
+        elif queue_type["redis"]:
+            assert isinstance(bus.queues["test"], RedisQueue)
 
-    msg = await bus.receive("test")
-    assert msg == {"payload": 1234}
-    msg = await bus.receive("test")
-    assert msg == {"another": "deadbeef"}
-    msg = await bus.receive("test")
-    assert msg == "covfefe"
-    assert bus.queues["test"].qsize() == 0
+        await bus.send("test", {"payload": 1234})
+        await bus.send("test", {"another": "deadbeef"})
+        await bus.send("test", "covfefe")
+        if not queue_type["redis"]:
+            assert bus.queues["test"].qsize() == 3
+
+        msg = await bus.receive("test")
+        assert msg == {"payload": 1234}
+        msg = await bus.receive("test")
+        assert msg == {"another": "deadbeef"}
+        msg = await bus.receive("test")
+        assert msg == "covfefe"
+        if not queue_type["redis"]:
+            assert bus.queues["test"].qsize() == 0
+
+    if queue_type["redis"]:
+        async with AsyncRedis() as redis_conn:
+            await do_test(redis_conn)
+    else:
+        await do_test()
 
 
+@pytest.mark.parametrize("queue_type", QUEUE_TYPES)
 @pytest.mark.asyncio
-async def test_message_passing_mp():
-    """
-    Test sending & receiving messages on a multiprocessing queueu
-    """
-    bus = MessageBus()
-    bus.add_queue("test", mp=True)
-    assert isinstance(bus.queues["test"], multiprocessing.queues.Queue)
-
-    await bus.send("test", {"payload": 1234})
-    await bus.send("test", {"another": "deadbeef"})
-    await bus.send("test", "covfefe")
-    assert bus.queues["test"].qsize() == 3
-
-    msg = await bus.receive("test")
-    assert msg == {"payload": 1234}
-    msg = await bus.receive("test")
-    assert msg == {"another": "deadbeef"}
-    msg = await bus.receive("test")
-    assert msg == "covfefe"
-    assert bus.queues["test"].qsize() == 0
-
-
-@pytest.mark.asyncio
-async def test_run_async_without_output_queue():
+async def test_run_async_without_output_queue(queue_type):
     """
     Test using run to get messages from a queue using an async function and without an output queue
     """
+    # Can't run with redis because it doesn't support maxsize.
+    if queue_type["redis"]:
+        return
+
     bus = MessageBus()
-    bus.add_queue("input")
-    bus.add_queue("end", maxsize=1)
-    assert isinstance(bus.queues["input"], asyncio.Queue)
+    bus.add_queue("input", mp=queue_type["mp"])
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["input"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["input"], multiprocessing.queues.Queue)
+    bus.add_queue("end", mp=queue_type["mp"], maxsize=1)
     assert bus.queues["input"].qsize() == 0
 
     await bus.send("input", "test x")
@@ -118,15 +125,23 @@ async def test_run_async_without_output_queue():
     assert bus.queues["end"].qsize() == 0
 
 
+@pytest.mark.parametrize("queue_type", QUEUE_TYPES)
 @pytest.mark.asyncio
-async def test_run_sync_without_output_queue():
+async def test_run_sync_without_output_queue(queue_type):
     """
     Test using run to get messages from a queue using a function and without an output queue
     """
+    # Can't run with redis because it doesn't support maxsize.
+    if queue_type["redis"]:
+        return
+
     bus = MessageBus()
-    bus.add_queue("input")
-    bus.add_queue("end", maxsize=1)
-    assert isinstance(bus.queues["input"], asyncio.Queue)
+    bus.add_queue("input", mp=queue_type["mp"])
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["input"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["input"], multiprocessing.queues.Queue)
+    bus.add_queue("end", mp=queue_type["mp"], maxsize=1)
     assert bus.queues["input"].qsize() == 0
 
     await bus.send("input", "test x")
@@ -157,18 +172,29 @@ async def test_run_sync_without_output_queue():
     assert bus.queues["end"].qsize() == 0
 
 
+@pytest.mark.parametrize("queue_type", QUEUE_TYPES)
 @pytest.mark.asyncio
-async def test_conversion():
+async def test_conversion(queue_type):
     """
     Test message conversion between 2 queues
     """
+    # Can't run with redis because it doesn't support maxsize.
+    if queue_type["redis"]:
+        return
+
     bus = MessageBus()
-    bus.add_queue("input")
+    bus.add_queue("input", mp=queue_type["mp"])
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["input"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["input"], multiprocessing.queues.Queue)
     bus.add_queue(
-        "output", maxsize=3
+        "output", mp=queue_type["mp"], maxsize=3
     )  # limit size to immediately stop execution for unit test
-    assert isinstance(bus.queues["input"], asyncio.Queue)
-    assert isinstance(bus.queues["output"], asyncio.Queue)
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["output"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["output"], multiprocessing.queues.Queue)
     assert bus.queues["input"].qsize() == 0
     assert bus.queues["output"].qsize() == 0
 
@@ -188,15 +214,23 @@ async def test_conversion():
     assert bus.queues["output"].qsize() == 0
 
 
+@pytest.mark.parametrize("queue_type", QUEUE_TYPES)
 @pytest.mark.asyncio
-async def test_run_async_parallel():
+async def test_run_async_parallel(queue_type):
     """
     Test using run to get messages from a queue using an async function executed in parallel
     """
+    # Can't run with redis because it doesn't support maxsize.
+    if queue_type["redis"]:
+        return
+
     bus = MessageBus()
-    bus.add_queue("input")
-    bus.add_queue("end", maxsize=1)
-    assert isinstance(bus.queues["input"], asyncio.Queue)
+    bus.add_queue("input", mp=queue_type["mp"])
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["input"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["input"], multiprocessing.queues.Queue)
+    bus.add_queue("end", mp=queue_type["mp"], maxsize=1)
     assert bus.queues["input"].qsize() == 0
 
     await bus.send("input", 0)
@@ -240,19 +274,33 @@ async def test_run_async_parallel():
     }
 
 
+@pytest.mark.parametrize("queue_type", QUEUE_TYPES)
 @pytest.mark.asyncio
-async def test_dispatch():
+async def test_dispatch(queue_type):
     """
     Test message dispatch from a queue to 2 queues
     """
+    # Can't run with redis because it doesn't support maxsize.
+    if queue_type["redis"]:
+        return
+
     bus = MessageBus()
-    bus.add_queue("input")
+    bus.add_queue("input", mp=queue_type["mp"])
     # limit size to immediately stop execution for unit test
-    bus.add_queue("output1", maxsize=3)
-    bus.add_queue("output2", maxsize=3)
-    assert isinstance(bus.queues["input"], asyncio.Queue)
-    assert isinstance(bus.queues["output1"], asyncio.Queue)
-    assert isinstance(bus.queues["output2"], asyncio.Queue)
+    bus.add_queue("output1", mp=queue_type["mp"], maxsize=3)
+    bus.add_queue("output2", mp=queue_type["mp"], maxsize=3)
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["input"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["input"], multiprocessing.queues.Queue)
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["output1"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["output1"], multiprocessing.queues.Queue)
+    if not queue_type["mp"]:
+        assert isinstance(bus.queues["output2"], asyncio.Queue)
+    elif queue_type["mp"]:
+        assert isinstance(bus.queues["output2"], multiprocessing.queues.Queue)
     assert bus.queues["input"].qsize() == 0
     assert bus.queues["output1"].qsize() == 0
     assert bus.queues["output2"].qsize() == 0
@@ -274,24 +322,26 @@ async def test_dispatch():
     assert bus.queues["output2"].qsize() == 0
 
 
+@pytest.mark.parametrize("queue_type", QUEUE_TYPES)
 @pytest.mark.asyncio
-async def test_maxsize():
+async def test_maxsize(queue_type):
     """
     Test a queue maxsize behaves as expected
     Maxsize=-1 is enabled by default
     """
-    bus = MessageBus()
-    bus.add_queue("async")
-    bus.add_queue("mp", mp=True)
-    assert bus.queues["async"].maxsize == -1
-    # No maxsize getter on mp queues
+    # Can't run with redis because it doesn't support maxsize.
+    if queue_type["redis"]:
+        return
 
-    assert bus.queues["async"].empty()
-    assert bus.queues["mp"].empty()
+    bus = MessageBus()
+    bus.add_queue("test", mp=queue_type["mp"])
+    # No maxsize getter on mp queues
+    if not queue_type["mp"]:
+        assert bus.queues["test"].maxsize == -1
+
+    assert bus.queues["test"].empty()
 
     for i in range(1000):
-        await bus.send("async", i)
-        await bus.send("mp", i)
+        await bus.send("test", i)
 
-    assert not bus.queues["async"].full()
-    assert not bus.queues["mp"].full()
+    assert not bus.queues["test"].full()
