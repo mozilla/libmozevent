@@ -6,6 +6,7 @@ import asyncio
 import fcntl
 import os
 import time
+from typing import Iterable
 
 import aioredis
 import hglib
@@ -35,12 +36,11 @@ def retry(
             time.sleep(wait_between_retries)
 
 
-def run_tasks(awaitables):
+def run_tasks(awaitables: Iterable):
     """
-    Helper to run tasks concurrenlty, but when an exception is raised
+    Helper to run tasks concurrently, but when an exception is raised
     by one of the tasks, the whole stack stops.
     """
-    assert isinstance(awaitables, list)
 
     async def _run():
         try:
