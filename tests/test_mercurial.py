@@ -5,27 +5,15 @@ import os.path
 
 import pytest
 
+from conftest import MockBuild
 from libmozevent.bus import MessageBus
 from libmozevent.mercurial import MercurialWorker
-from libmozevent.phabricator import PhabricatorBuild, PhabricatorBuildState
 
 MERCURIAL_FAILURE = """unable to find 'crash.txt' for patching
 (use '--prefix' to apply patch relative to the current directory)
 1 out of 1 hunks FAILED -- saving rejects to file crash.txt.rej
 abort: patch failed to apply
 """
-
-
-class MockBuild(PhabricatorBuild):
-    def __init__(self, diff_id, repo_phid, revision_id, target_phid, diff):
-        self.diff_id = diff_id
-        self.repo_phid = repo_phid
-        self.revision_id = revision_id
-        self.target_phid = target_phid
-        self.diff = diff
-        self.stack = []
-        self.state = PhabricatorBuildState.Public
-        self.revision_url = None
 
 
 @pytest.mark.asyncio
