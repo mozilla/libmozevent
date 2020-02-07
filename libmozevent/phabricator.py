@@ -75,7 +75,7 @@ class PhabricatorActions(object):
 
     def update_state(self, build):
         """
-        Check the visibility of the revision, by retrying N times with a specified time
+        Check the visibility of the revision, by retrying N times with an exponential backoff time
         This method is executed regularly by the client application to check on the status evolution
         as the BMO daemon can take several minutes to update the status
         """
@@ -91,8 +91,9 @@ class PhabricatorActions(object):
             return
 
         # Check this build has been awaited between tries
+        exp_backoff = (2 ** (self.retries - retries_left + 1) - 1) * self.sleep
         now = time.time()
-        if last_try is not None and now - last_try < self.sleep:
+        if last_try is not None and now - last_try < exp_backoff:
             return
 
         # Now we can check if this revision is public
