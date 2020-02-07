@@ -205,11 +205,7 @@ async def test_run_async_parallel():
 
     assert bus.queues["input"].qsize() == 3
 
-    done = {
-        0: False,
-        1: False,
-        2: False,
-    }
+    done = {0: False, 1: False, 2: False}
 
     async def torun(count):
         await asyncio.sleep(0)
@@ -233,11 +229,7 @@ async def test_run_async_parallel():
     task.cancel()
     assert bus.queues["input"].qsize() == 0
     assert bus.queues["end"].qsize() == 0
-    assert done == {
-        0: False,
-        1: True,
-        2: True,
-    }
+    assert done == {0: False, 1: True, 2: True}
 
 
 @pytest.mark.asyncio

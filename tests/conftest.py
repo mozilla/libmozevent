@@ -9,7 +9,8 @@ import json
 import os.path
 import urllib.parse
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from unittest.mock import MagicMock
 
 import hglib
@@ -20,6 +21,8 @@ from taskcluster.utils import stringDate
 
 from libmozevent.mercurial import Repository
 from libmozevent.phabricator import PhabricatorActions
+from libmozevent.phabricator import PhabricatorBuild
+from libmozevent.phabricator import PhabricatorBuildState
 
 MOCK_DIR = os.path.join(os.path.dirname(__file__), "mocks")
 
@@ -338,3 +341,15 @@ def mock_taskcluster():
     tc.default_url = "http://taskcluster.test"
     tc.options["maxRetries"] = 1
     return tc
+
+
+class MockBuild(PhabricatorBuild):
+    def __init__(self, diff_id, repo_phid, revision_id, target_phid, diff):
+        self.diff_id = diff_id
+        self.repo_phid = repo_phid
+        self.revision_id = revision_id
+        self.target_phid = target_phid
+        self.diff = diff
+        self.stack = []
+        self.state = PhabricatorBuildState.Public
+        self.revision_url = None

@@ -6,7 +6,8 @@ import multiprocessing
 import os
 import pickle
 from queue import Empty
-from typing import Any, Callable
+from typing import Any
+from typing import Callable
 
 import structlog
 

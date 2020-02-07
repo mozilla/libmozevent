@@ -16,7 +16,8 @@ import structlog
 from libmozdata.phabricator import PhabricatorPatch
 
 from libmozevent.phabricator import PhabricatorBuild
-from libmozevent.utils import batch_checkout, robust_checkout
+from libmozevent.utils import batch_checkout
+from libmozevent.utils import robust_checkout
 
 logger = structlog.get_logger(__name__)
 

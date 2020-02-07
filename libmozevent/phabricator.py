@@ -60,6 +60,7 @@ class PhabricatorActions(object):
         # Phabricator secure revision retries configuration
         assert isinstance(retries, int)
         assert isinstance(sleep, int)
+        self.max_retries = retries
         self.retries = collections.defaultdict(lambda: (retries, None))
         self.sleep = sleep
         logger.info(
@@ -75,7 +76,7 @@ class PhabricatorActions(object):
 
     def update_state(self, build):
         """
-        Check the visibility of the revision, by retrying N times with a specified time
+        Check the visibility of the revision, by retrying N times with an exponential backoff time
         This method is executed regularly by the client application to check on the status evolution
         as the BMO daemon can take several minutes to update the status
         """
@@ -91,8 +92,9 @@ class PhabricatorActions(object):
             return
 
         # Check this build has been awaited between tries
+        exp_backoff = (2 ** (self.max_retries - retries_left)) * self.sleep
         now = time.time()
-        if last_try is not None and now - last_try < self.sleep:
+        if last_try is not None and now - last_try < exp_backoff:
             return
 
         # Now we can check if this revision is public
