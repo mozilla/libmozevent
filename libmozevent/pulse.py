@@ -7,7 +7,9 @@ import asyncio
 import fnmatch
 import itertools
 import json
-from typing import Dict, List, Tuple
+from typing import Dict
+from typing import List
+from typing import Tuple
 
 import aioamqp
 import structlog

@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, List
+from datetime import datetime
+from datetime import timedelta
+from typing import Dict
+from typing import List
 
 import structlog
 from taskcluster.helper import TaskclusterConfig
-from taskcluster.utils import slugId, stringDate
+from taskcluster.utils import slugId
+from taskcluster.utils import stringDate
 
 logger = structlog.get_logger(__name__)
 
