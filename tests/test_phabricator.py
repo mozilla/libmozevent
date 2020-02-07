@@ -39,7 +39,7 @@ def test_backoff(PhabricatorMock):
         assert phab.is_visible.call_count == 2
 
         # Last iteration is even further away
-        time.sleep(0.4)
+        time.sleep(0.1)
         phab.update_state(build)
         assert build.state == PhabricatorBuildState.Queued
         assert phab.is_visible.call_count == 2

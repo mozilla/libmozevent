@@ -54,7 +54,7 @@ class PhabricatorActions(object):
     Common Phabricator actions shared across clients
     """
 
-    def __init__(self, url, api_key, retries=4, sleep=10):
+    def __init__(self, url, api_key, retries=5, sleep=10):
         self.api = PhabricatorAPI(url=url, api_key=api_key)
 
         # Phabricator secure revision retries configuration
@@ -92,7 +92,7 @@ class PhabricatorActions(object):
             return
 
         # Check this build has been awaited between tries
-        exp_backoff = (2 ** (self.max_retries - retries_left + 1) - 1) * self.sleep
+        exp_backoff = (2 ** (self.max_retries - retries_left)) * self.sleep
         now = time.time()
         if last_try is not None and now - last_try < exp_backoff:
             return
