@@ -40,7 +40,7 @@ tasks:
         else: "latest"
       else: "latest"
 
-    taskboot_image: "mozilla/taskboot:0.1.10"
+    taskboot_image: "mozilla/taskboot:0.2.2"
   in:
     - taskId: {$eval: as_slugid("check_lint")}
       provisionerId: proj-relman
@@ -115,5 +115,35 @@ tasks:
         metadata:
           name: "libmozevent publication on PyPi"
           description: Publish new version on PyPi
+          owner: bastien@mozilla.com
+          source: https://github.com/mozilla/libmozevent
+
+    - $if: 'tag != "latest"'
+      then:
+        taskId: {$eval: as_slugid("release")}
+        created: {$fromNow: ''}
+        deadline: {$fromNow: '1 hour'}
+        provisionerId: proj-relman
+        workerType: ci
+        dependencies:
+          - {$eval: as_slugid("check_lint")}
+          - {$eval: as_slugid("check_tests")}
+        payload:
+          features:
+            taskclusterProxy: true
+          maxRunTime: 3600
+          image: "${taskboot_image}"
+          env:
+            TASKCLUSTER_SECRET: "project/relman/libmozevent/deploy"
+          command:
+            - taskboot
+            - github-release
+            - mozilla/libmozevent
+            - "${tag}"
+        scopes:
+          - "secrets:get:project/relman/libmozevent/deploy"
+        metadata:
+          name: "libmozevent publication on GitHub"
+          description: Publish release notes on GitHub
           owner: bastien@mozilla.com
           source: https://github.com/mozilla/libmozevent
