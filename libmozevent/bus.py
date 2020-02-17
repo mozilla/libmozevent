@@ -54,7 +54,9 @@ class MessageBus(object):
 
         if isinstance(queue, RedisQueue):
             async with AsyncRedis() as redis:
-                await redis.rpush(queue.name, pickle.dumps(payload,protocol=pickle.HIGHEST_PROTOCOL))
+                await redis.rpush(
+                    queue.name, pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)
+                )
 
         elif isinstance(queue, asyncio.Queue):
             await queue.put(payload)
