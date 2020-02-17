@@ -15,7 +15,6 @@ import structlog
 log = structlog.get_logger(__name__)
 
 
-
 def run_tasks(awaitables: Iterable):
     """
     Helper to run tasks concurrently, but when an exception is raised
