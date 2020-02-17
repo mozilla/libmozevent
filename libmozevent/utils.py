@@ -15,27 +15,6 @@ import structlog
 log = structlog.get_logger(__name__)
 
 
-class RunException(Exception):
-    """
-    Exception used to stop retrying
-    """
-
-
-def retry(
-    operation, retries=5, wait_between_retries=30, exception_to_break=RunException
-):
-    while True:
-        try:
-            return operation()
-        except Exception as e:
-            if isinstance(e, exception_to_break):
-                raise
-            retries -= 1
-            if retries == 0:
-                raise
-            time.sleep(wait_between_retries)
-
-
 def run_tasks(awaitables: Iterable):
     """
     Helper to run tasks concurrently, but when an exception is raised
