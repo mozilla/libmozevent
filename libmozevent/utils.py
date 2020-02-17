@@ -15,11 +15,6 @@ import structlog
 log = structlog.get_logger(__name__)
 
 
-class RunException(Exception):
-    """
-    Exception used to stop retrying
-    """
-
 
 def run_tasks(awaitables: Iterable):
     """
