@@ -55,7 +55,7 @@ tasks:
           - -lxce
           - "git clone --quiet ${repository} /src && cd /src && git checkout ${head_rev} -b checks &&
             pip install -q . && pip install -q -r requirements-dev.txt &&
-            cd /src && pre-commit run -a"
+            cd /src && pre-commit run -a --show-diff-on-failure"
       metadata:
         name: "libmozevent checks: linting"
         description: Check code style with pre-commit hooks
