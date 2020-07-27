@@ -49,6 +49,7 @@ class Repository(object):
         self.default_revision = config.get("default_revision", "tip")
         if self.try_mode == TryMode.syntax:
             assert self.try_syntax, "Missing try syntax"
+        self._repo = None
 
         # Write ssh key from secret
         _, self.ssh_key_path = tempfile.mkstemp(suffix=".key")
@@ -66,7 +67,6 @@ class Repository(object):
         ).encode("utf-8")
 
         # Remove key when finished
-        self.repo = None
         atexit.register(self.end_of_life)
 
     def __str__(self):
@@ -87,9 +87,19 @@ class Repository(object):
         logger.info("Full checkout finished")
 
         # Setup repo in main process
-        self.repo = hglib.open(self.dir)
         self.repo.setcbout(lambda msg: logger.info("Mercurial", stdout=msg))
         self.repo.setcberr(lambda msg: logger.info("Mercurial", stderr=msg))
+
+    @property
+    def repo(self):
+        """
+        Get the repo instance, in case it's None re-open it
+        """
+        if self._repo is None or self._repo.server is None:
+            logger.info("Mercurial open {}".format(self.dir))
+            self._repo = hglib.open(self.dir)
+
+        return self._repo
 
     def has_revision(self, revision):
         """
