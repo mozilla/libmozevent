@@ -303,7 +303,7 @@ def mock_mc(tmpdir):
         "batch_size": 100,
     }
     repo = Repository(config, tmpdir.realpath())
-    repo.repo = build_repository(tmpdir, "mozilla-central")
+    repo._repo = build_repository(tmpdir, "mozilla-central")
     repo.clone = MagicMock(side_effect=asyncio.coroutine(lambda: True))
     return repo
 
@@ -324,7 +324,7 @@ def mock_nss(tmpdir):
         "batch_size": 100,
     }
     repo = Repository(config, tmpdir.realpath())
-    repo.repo = build_repository(tmpdir, "nss")
+    repo._repo = build_repository(tmpdir, "nss")
     repo.clone = MagicMock(side_effect=asyncio.coroutine(lambda: True))
     return repo
 
