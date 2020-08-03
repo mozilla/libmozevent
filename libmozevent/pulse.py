@@ -11,8 +11,8 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 
-from librabbitmq import Connection
 import structlog
+from librabbitmq import Connection
 
 logger = structlog.get_logger(__name__)
 
@@ -36,10 +36,7 @@ async def create_pulse_listener(
     port = 5671
 
     protocol = await Connection(
-        host=host,
-        userid=user,
-        password=password,
-        virtual_host=virtualhost,
+        host=host, userid=user, password=password, virtual_host=virtualhost,
     )
 
     channel = await protocol.channel()
@@ -69,18 +66,14 @@ async def create_pulse_listener(
         # user, we need to ensure that exchange exists before first message is
         # sent (this is what creates exchange)
         if exchange.startswith(f"exchange/{user}/"):
-            await channel.exchange_declare(
-                exchange, "topic", durable=True
-            )
+            await channel.exchange_declare(exchange, "topic", durable=True)
 
         for topic in topics:
             logger.info(
                 "Connected on pulse", queue=queue, topic=topic, exchange=exchange
             )
 
-            await channel.queue_bind(
-                queue, exchange, topic
-            )
+            await channel.queue_bind(queue, exchange, topic)
 
         await channel.basic_consume(queue, callback=callback)
 
