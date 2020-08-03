@@ -11,7 +11,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 
-import aioamqp
+from librabbitmq import Connection
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -35,17 +35,14 @@ async def create_pulse_listener(
     host = "pulse.mozilla.org"
     port = 5671
 
-    _, protocol = await aioamqp.connect(
+    protocol = await Connection(
         host=host,
-        login=user,
+        userid=user,
         password=password,
-        ssl=True,
-        port=port,
-        virtualhost=virtualhost,
+        virtual_host=virtualhost,
     )
 
     channel = await protocol.channel()
-    await channel.basic_qos(prefetch_count=1, prefetch_size=0, connection_global=False)
 
     for exchange, topics in exchanges_topics:
         # get exchange name out from full exchange name
@@ -66,14 +63,14 @@ async def create_pulse_listener(
         #   pulse but something we started doing in release services
         queue = f"queue/{user}/exchange/{exchange_name}"
 
-        await channel.queue_declare(queue_name=queue, durable=True)
+        await channel.queue_declare(queue, durable=True)
 
         # in case we are going to listen to an exchange that is specific for this
         # user, we need to ensure that exchange exists before first message is
         # sent (this is what creates exchange)
         if exchange.startswith(f"exchange/{user}/"):
             await channel.exchange_declare(
-                exchange_name=exchange, type_name="topic", durable=True
+                exchange, "topic", durable=True
             )
 
         for topic in topics:
@@ -82,10 +79,10 @@ async def create_pulse_listener(
             )
 
             await channel.queue_bind(
-                exchange_name=exchange, queue_name=queue, routing_key=topic
+                queue, exchange, topic
             )
 
-        await channel.basic_consume(callback, queue_name=queue)
+        await channel.basic_consume(queue, callback=callback)
 
     return protocol
 
@@ -136,7 +133,7 @@ class PulseListener(object):
                 # AmqpClosedConnection will be thrown otherwise
                 await pulse.ensure_open()
                 await asyncio.sleep(7)
-            except (aioamqp.AmqpClosedConnection, OSError) as e:
+            except (OSError) as e:
                 logger.exception("Reconnecting pulse client in 5 seconds", error=str(e))
                 pulse = None
                 await asyncio.sleep(5)
