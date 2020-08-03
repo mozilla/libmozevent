@@ -33,7 +33,6 @@ async def create_pulse_listener(
     assert isinstance(password, str)
 
     host = "pulse.mozilla.org"
-    port = 5671
 
     protocol = await Connection(
         host=host, userid=user, password=password, virtual_host=virtualhost,
