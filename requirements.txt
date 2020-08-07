@@ -2,6 +2,7 @@ aioamqp>=0.13.0
 aiohttp
 aioredis
 libmozdata
+librabbitmq
 Logbook
 python-hglib
 pytoml
