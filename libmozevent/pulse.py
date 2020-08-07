@@ -12,7 +12,7 @@ from typing import List
 from typing import Tuple
 
 import structlog
-from librabbitmq import Connection
+from librabbitmq import Connection, ConnectionError, ChannelError
 
 logger = structlog.get_logger(__name__)
 
@@ -34,11 +34,12 @@ async def create_pulse_listener(
 
     host = "pulse.mozilla.org"
 
-    protocol = await Connection(
+    protocol = Connection(
         host=host, userid=user, password=password, virtual_host=virtualhost,
     )
 
-    channel = await protocol.channel()
+    channel = protocol.channel()
+    channel.basic_qos(prefetch_size=0, prefetch_count=1, connection_global=False)
 
     for exchange, topics in exchanges_topics:
         # get exchange name out from full exchange name
@@ -59,22 +60,22 @@ async def create_pulse_listener(
         #   pulse but something we started doing in release services
         queue = f"queue/{user}/exchange/{exchange_name}"
 
-        await channel.queue_declare(queue, durable=True)
+        channel.queue_declare(queue, durable=True)
 
         # in case we are going to listen to an exchange that is specific for this
         # user, we need to ensure that exchange exists before first message is
         # sent (this is what creates exchange)
         if exchange.startswith(f"exchange/{user}/"):
-            await channel.exchange_declare(exchange, "topic", durable=True)
+            channel.exchange_declare(exchange, "topic", durable=True)
 
         for topic in topics:
             logger.info(
                 "Connected on pulse", queue=queue, topic=topic, exchange=exchange
             )
 
-            await channel.queue_bind(queue, exchange, topic)
+            channel.queue_bind(queue, exchange, topic)
 
-        await channel.basic_consume(queue, callback=callback)
+        channel.basic_consume(queue, callback=callback)
 
     return protocol
 
@@ -125,7 +126,7 @@ class PulseListener(object):
                 # AmqpClosedConnection will be thrown otherwise
                 await pulse.ensure_open()
                 await asyncio.sleep(7)
-            except (OSError) as e:
+            except (ConnectionError, ChannelError, OSError) as e:
                 logger.exception("Reconnecting pulse client in 5 seconds", error=str(e))
                 pulse = None
                 await asyncio.sleep(5)
@@ -178,4 +179,4 @@ class PulseListener(object):
             await self.bus.send(bus_queue, {"routing": routing, "body": body})
 
         # Ack the message so it is removed from the broker's queue
-        await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
+        channel.basic_ack(delivery_tag=envelope.delivery_tag)
