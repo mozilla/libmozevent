@@ -12,7 +12,9 @@ from typing import List
 from typing import Tuple
 
 import structlog
-from librabbitmq import Connection, ConnectionError, ChannelError
+from librabbitmq import ChannelError
+from librabbitmq import Connection
+from librabbitmq import ConnectionError
 
 logger = structlog.get_logger(__name__)
 
