@@ -12,6 +12,7 @@ import tempfile
 import time
 
 import hglib
+import rs_parsepatch
 import structlog
 from libmozdata.phabricator import PhabricatorPatch
 
@@ -273,11 +274,12 @@ class MercurialWorker(object):
     Mercurial worker maintaining several local clones
     """
 
-    def __init__(self, queue_name, queue_phabricator, repositories):
+    def __init__(self, queue_name, queue_phabricator, repositories, skippable_files=[]):
         assert all(map(lambda r: isinstance(r, Repository), repositories.values()))
         self.queue_name = queue_name
         self.queue_phabricator = queue_phabricator
         self.repositories = repositories
+        self.skippable_files = skippable_files
 
     def register(self, bus):
         self.bus = bus
@@ -305,6 +307,23 @@ class MercurialWorker(object):
                     "Unsupported repository", repo=build.repo_phid, build=build
                 )
 
+    def is_commit_skippable(self, build):
+        def get_files_touched_in_diff(rawdiff):
+            patched = []
+            for parsed_diff in rs_parsepatch.get_diffs(rawdiff):
+                # filename is sometimes of format 'test.txt  Tue Feb 05 17:23:40 2019 +0100'
+                # fix after https://github.com/mozilla/rust-parsepatch/issues/61
+                if "filename" in parsed_diff:
+                    filename = parsed_diff["filename"].split(" ")[0]
+                    patched.append(filename)
+            return patched
+
+        return any(
+            patched_file in self.skippable_files
+            for rev in build.stack
+            for patched_file in get_files_touched_in_diff(rev.patch)
+        )
+
     def handle_build(self, repository, build):
         """
         Try to load and apply a diff on local clone
@@ -320,6 +339,18 @@ class MercurialWorker(object):
 
             # First apply patches on local repo
             repository.apply_build(build)
+
+            # Check Eligibility: some commits don't need to be pushed to try.
+            if self.is_commit_skippable(build):
+                logger.info("This patch series is ineligible for automated try push")
+                return (
+                    "fail:ineligible",
+                    build,
+                    {
+                        "message": "Modified files match skippable internal configuration files",
+                        "duration": time.time() - start,
+                    },
+                )
 
             # Configure the try task
             repository.add_try_commit(build)
