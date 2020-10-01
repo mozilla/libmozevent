@@ -241,6 +241,87 @@ Differential Diff: PHID-DIFF-solo"""
 
 
 @pytest.mark.asyncio
+async def test_dont_push_skippable_files_to_try(PhabricatorMock, mock_mc):
+    """
+    Run mercurial worker on a single diff
+    that skips the push to try server
+    """
+    bus = MessageBus()
+    bus.add_queue("phabricator")
+
+    # Preload the build
+    diff = {
+        "phid": "PHID-DIFF-test123",
+        "revisionPHID": "PHID-DREV-deadbeef",
+        "id": 1234,
+        # Revision does not exist, will apply on tip
+        "baseRevision": "abcdef12345",
+    }
+    build = MockBuild(1234, "PHID-REPO-mc", 5678, "PHID-HMBT-deadbeef", diff)
+    with PhabricatorMock as phab:
+        phab.load_patches_stack(build)
+
+    # Get initial tip commit in repo
+    initial = mock_mc.repo.tip()
+
+    # The patched and config files should not exist at first
+    repo_dir = mock_mc.repo.root().decode("utf-8")
+    config = os.path.join(repo_dir, "try_task_config.json")
+    target = os.path.join(repo_dir, "test.txt")
+    assert not os.path.exists(target)
+    assert not os.path.exists(config)
+
+    worker = MercurialWorker(
+        "mercurial",
+        "phabricator",
+        repositories={"PHID-REPO-mc": mock_mc},
+        skippable_files=["test.txt"],
+    )
+    worker.register(bus)
+    assert len(worker.repositories) == 1
+
+    await bus.send("mercurial", build)
+    assert bus.queues["mercurial"].qsize() == 1
+    task = asyncio.create_task(worker.run())
+
+    # Check the treeherder link was queued
+    mode, out_build, details = await bus.receive("phabricator")
+    tip = mock_mc.repo.tip()
+    assert mode == "fail:ineligible"
+    assert out_build == build
+    assert (
+        details["message"]
+        == "Modified files match skippable internal configuration files"
+    )
+    task.cancel()
+
+    # The target should have content now
+    assert os.path.exists(target)
+    assert open(target).read() == "First Line\nSecond Line\n"
+
+    # Get tip commit in repo
+    # It should be different from the initial one (patches + config have applied)
+    assert tip.node != initial.node
+
+    # Check all commits messages
+    assert [c.desc for c in mock_mc.repo.log()] == [
+        b"Bug XXX - A second commit message\nDifferential Diff: PHID-DIFF-test123",
+        b"Bug XXX - A first commit message\nDifferential Diff: PHID-DIFF-xxxx",
+        b"Readme",
+    ]
+
+    # Check all commits authors
+    assert [c.author for c in mock_mc.repo.log()] == [
+        b"John Doe <john@allizom.org>",
+        b"randomUsername <random>",
+        b"test",
+    ]
+
+    # Check the push to try has not been called
+    mock_mc.repo.push.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_treeherder_link(PhabricatorMock, mock_mc):
     """
     Run mercurial worker on a single diff

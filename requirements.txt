@@ -5,5 +5,6 @@ libmozdata
 Logbook
 python-hglib
 pytoml
+rs_parsepatch
 structlog
 taskcluster>=24.0.0
