@@ -154,10 +154,20 @@ class Repository(object):
         except hglib.error.CommandError:
             raise Exception("Failed to update to revision {}".format(hg_base))
 
-        # Get current revision using full information tuple from hglib
-        revision = self.repo.identify(id=True).strip()
-        revision = self.repo.log(revision, limit=1)[0]
-        logger.info("Updated repo", revision=revision.node, repo=self.name)
+        # In this case revision is `hg_base`
+        logger.info("Updated repo", revision=hg_base, repo=self.name)
+
+        # See if the repo is clean
+        repo_status = self.repo.status(
+            modified=True, added=True, removed=True, deleted=True
+        )
+        if len(repo_status) != 0:
+            logger.warn(
+                "Repo is dirty!",
+                revision=hg_base,
+                repo=self.name,
+                repo_status=repo_status,
+            )
 
         def get_author(commit):
             """Helper to build a mercurial author from Phabricator data"""
