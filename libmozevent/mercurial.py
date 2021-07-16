@@ -151,23 +151,28 @@ class Repository(object):
         try:
             logger.info("Updating repo to revision {}".format(hg_base))
             self.repo.update(rev=hg_base, clean=True)
+
+            # See if the repo is clean
+            repo_status = self.repo.status(
+                modified=True, added=True, removed=True, deleted=True
+            )
+            if len(repo_status) != 0:
+                logger.warn(
+                    "Repo is dirty! Let's clean it first.",
+                    revision=hg_base,
+                    repo=self.name,
+                    repo_status=repo_status,
+                )
+                # Clean the repo - This is a workaround for Bug 1720302
+                self.repo.update(rev="null", clean=True)
+                # Redo the update to the correct revision
+                self.repo.update(rev=hg_base, clean=True)
+
         except hglib.error.CommandError:
             raise Exception("Failed to update to revision {}".format(hg_base))
 
         # In this case revision is `hg_base`
         logger.info("Updated repo", revision=hg_base, repo=self.name)
-
-        # See if the repo is clean
-        repo_status = self.repo.status(
-            modified=True, added=True, removed=True, deleted=True
-        )
-        if len(repo_status) != 0:
-            logger.warn(
-                "Repo is dirty!",
-                revision=hg_base,
-                repo=self.name,
-                repo_status=repo_status,
-            )
 
         def get_author(commit):
             """Helper to build a mercurial author from Phabricator data"""
