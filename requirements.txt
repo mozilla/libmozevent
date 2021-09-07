@@ -1,6 +1,6 @@
 aioamqp>=0.13.0
 aiohttp
-aioredis
+aioredis>=2.0.0
 libmozdata
 Logbook
 python-hglib

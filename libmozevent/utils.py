@@ -3,6 +3,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import asyncio
+import contextvars
 import fcntl
 import os
 import time
@@ -139,10 +140,12 @@ class AsyncRedis(object):
     Async context manager to create a redis connection
     """
 
-    async def __aenter__(self):
-        self.conn = await aioredis.create_redis(os.environ["REDIS_URL"])
-        return self.conn
+    redis: aioredis.Redis = contextvars.ContextVar("redis-server")
 
-    async def __aexit__(self, exc_type, exc, tb):
-        self.conn.close()
-        await self.conn.wait_closed()
+    @staticmethod
+    async def connect():
+        if AsyncRedis.redis.get(None) is None:
+            AsyncRedis.redis.set(
+                await aioredis.from_url(os.environ["REDIS_URL"], decode_responses=False)
+            )
+        return AsyncRedis.redis.get()
