@@ -22,10 +22,11 @@ class EphemeralStorage:
 
     async def get(self, key):
         if self.redis_enabled and key not in self.cache:
-            async with AsyncRedis() as redis:
-                val = await redis.get(self._redis_key(key))
-                if val is not None:
-                    self.cache[key] = pickle.loads(val)
+            redis = await AsyncRedis.connect()
+            assert redis is not None
+            val = await redis.get(self._redis_key(key))
+            if val is not None:
+                self.cache[key] = pickle.loads(val)
 
         return self.cache[key]
 
@@ -33,18 +34,20 @@ class EphemeralStorage:
         self.cache[key] = value
 
         if self.redis_enabled:
-            async with AsyncRedis() as redis:
-                await redis.expire(self.name, self.expiration)
-                await redis.set(
-                    self._redis_key(key),
-                    pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL),
-                    expire=self.expiration,
-                )
+            redis = await AsyncRedis.connect()
+            assert redis is not None
+            await redis.expire(self.name, self.expiration)
+            await redis.set(
+                self._redis_key(key),
+                pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL),
+                ex=self.expiration,
+            )
 
     async def rem(self, key):
         if self.redis_enabled:
-            async with AsyncRedis() as redis:
-                await redis.delete(self._redis_key(key))
+            redis = await AsyncRedis.connect()
+            assert redis is not None
+            await redis.delete(self._redis_key(key))
 
         try:
             del self.cache[key]
