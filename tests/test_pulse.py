@@ -49,28 +49,22 @@ def test_bugbug_routes():
     }
     pulse = PulseListener(config, "user", "password")
 
-    assert (
-        pulse.find_matching_queues(
-            "exchange/taskcluster-queue/v1/task-completed",
-            [
-                b"primary.fUAKaIdkSF6K1NlOgx7-LA.0.aws.i-0a45c84b1709af6a7.gecko-t.t-win10-64.gecko-level-1.RHY-YSgBQ7KlTAaQ5ZWP5g._",
-                b"route.tc-treeherder.v2.try.028980a035fb3e214f7645675a01a52234aad0fe.455891",
-            ],
-        )
-        == {"bugbug_firefox"}
-    )
+    assert pulse.find_matching_queues(
+        "exchange/taskcluster-queue/v1/task-completed",
+        [
+            b"primary.fUAKaIdkSF6K1NlOgx7-LA.0.aws.i-0a45c84b1709af6a7.gecko-t.t-win10-64.gecko-level-1.RHY-YSgBQ7KlTAaQ5ZWP5g._",
+            b"route.tc-treeherder.v2.try.028980a035fb3e214f7645675a01a52234aad0fe.455891",
+        ],
+    ) == {"bugbug_firefox"}
 
-    assert (
-        pulse.find_matching_queues(
-            "exchange/taskcluster-queue/v1/task-completed",
-            [
-                b"primary.OhtlizLqT9ah2jVkUL-yvg.0.community-tc-workers-google.8155538221748661937.proj-relman.compute-large.-.OhtlizLqT9ah2jVkUL-yvg._",
-                b"route.notify.email.release-mgmt-analysis@mozilla.com.on-failed",
-                b"route.notify.irc-channel.#bugbug.on-failed",
-                b"route.index.project.relman.bugbug.test_select.latest",
-                b"route.index.project.relman.bugbug.test_select.diff.196676",
-                b"route.project.relman.bugbug.test_select",
-            ],
-        )
-        == {"bugbug_community"}
-    )
+    assert pulse.find_matching_queues(
+        "exchange/taskcluster-queue/v1/task-completed",
+        [
+            b"primary.OhtlizLqT9ah2jVkUL-yvg.0.community-tc-workers-google.8155538221748661937.proj-relman.compute-large.-.OhtlizLqT9ah2jVkUL-yvg._",
+            b"route.notify.email.release-mgmt-analysis@mozilla.com.on-failed",
+            b"route.notify.irc-channel.#bugbug.on-failed",
+            b"route.index.project.relman.bugbug.test_select.latest",
+            b"route.index.project.relman.bugbug.test_select.diff.196676",
+            b"route.project.relman.bugbug.test_select",
+        ],
+    ) == {"bugbug_community"}
