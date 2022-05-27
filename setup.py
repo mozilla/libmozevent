@@ -37,7 +37,7 @@ setuptools.setup(
     description="Listens to Mozilla event sources" "and build workflows on top.",
     author="Mozilla Release Management",
     author_email="release-mgmt-analysis@mozilla.com",
-    url="https://github.com/mozilla/libmozdata",
+    url="https://github.com/mozilla/libmozevent",
     tests_require=read_requirements("requirements-dev.txt"),
     install_requires=read_requirements("requirements.txt"),
     packages=setuptools.find_packages(),
