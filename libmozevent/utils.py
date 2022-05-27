@@ -146,6 +146,15 @@ class AsyncRedis(object):
     async def connect():
         if AsyncRedis.redis.get(None) is None:
             AsyncRedis.redis.set(
-                await aioredis.from_url(os.environ["REDIS_URL"], decode_responses=False)
+                await aioredis.from_url(
+                    os.environ["REDIS_TLS_URL"],
+                    decode_responses=False,
+                    ssl_cert_reqs=None,
+                )
+                if os.getenv("REDIS_TLS_URL", None) is not None
+                else await aioredis.from_url(
+                    os.environ["REDIS_URL"],
+                    decode_responses=False,
+                )
             )
         return AsyncRedis.redis.get()
