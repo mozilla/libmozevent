@@ -7,6 +7,7 @@ import atexit
 import enum
 import io
 import json
+import logging
 import os
 import tempfile
 import time
@@ -15,6 +16,11 @@ import hglib
 import rs_parsepatch
 import structlog
 from libmozdata.phabricator import PhabricatorPatch
+from tenacity import before_sleep_log
+from tenacity import retry
+from tenacity import retry_if_exception_type
+from tenacity import stop_after_attempt
+from tenacity import wait_exponential
 
 from libmozevent.phabricator import PhabricatorBuild
 from libmozevent.utils import batch_checkout
@@ -249,6 +255,15 @@ class Repository(object):
         self.repo.add(path.encode("utf-8"))
         self.repo.commit(message=message, user=DEFAULT_AUTHOR)
 
+    @retry(
+        retry=retry_if_exception_type(hglib.error.CommandError),
+        # Retry pushing after 20, 40, 80 then 160s
+        # After 5 attempts in 5 minutes, the error is raised
+        wait=wait_exponential(multiplier=2, min=20, max=160),
+        stop=stop_after_attempt(5),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     def push_to_try(self):
         """
         Push the current tip on remote try repository
