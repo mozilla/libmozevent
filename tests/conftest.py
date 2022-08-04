@@ -353,3 +353,4 @@ class MockBuild(PhabricatorBuild):
         self.stack = []
         self.state = PhabricatorBuildState.Public
         self.revision_url = None
+        self.retries = 0

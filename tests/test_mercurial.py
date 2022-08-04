@@ -666,10 +666,9 @@ async def test_unexpected_push_failure(PhabricatorMock, mock_mc):
     bus = MessageBus()
     bus.add_queue("phabricator")
 
-    worker = MercurialWorker(
-        "mercurial", "phabricator", repositories={"PHID-REPO-mc": mock_mc}
-    )
-    worker.register(bus)
+    from libmozevent import mercurial
+
+    mercurial.MAX_PUSH_RETRIES = 1
 
     repository_mock = MagicMock(spec=Repository)
     repository_mock.push_to_try.side_effect = [
@@ -682,6 +681,12 @@ async def test_unexpected_push_failure(PhabricatorMock, mock_mc):
         mock_mc.repo.tip(),
     ]
     repository_mock.try_name = "try"
+    repository_mock.retries = 0
+
+    worker = MercurialWorker(
+        "mercurial", "phabricator", repositories={"PHID-REPO-mc": repository_mock}
+    )
+    worker.register(bus)
 
     assert bus.queues["mercurial"].qsize() == 0
 
@@ -707,3 +712,58 @@ async def test_unexpected_push_failure(PhabricatorMock, mock_mc):
         tip.node.decode("utf-8")
     )
     assert details["revision"] == tip.node.decode("utf-8")
+
+
+@pytest.mark.asyncio
+async def test_push_failure_max_retries(PhabricatorMock, mock_mc):
+    """
+    When a fail occurs while pushing the file configuring try
+    A new task for the build is added to the bus
+    """
+    diff = {
+        "revisionPHID": "PHID-DREV-badutf8",
+        "baseRevision": "missing",
+        "phid": "PHID-DIFF-badutf8",
+        "id": 555,
+    }
+    build = MockBuild(4444, "PHID-REPO-mc", 5555, "PHID-build-badutf8", diff)
+    with PhabricatorMock as phab:
+        phab.load_patches_stack(build)
+
+    bus = MessageBus()
+    bus.add_queue("phabricator")
+
+    from libmozevent import mercurial
+
+    mercurial.MAX_PUSH_RETRIES = 2
+
+    repository_mock = MagicMock(spec=Repository)
+    repository_mock.push_to_try.side_effect = hglib.error.CommandError(
+        args=("push", "try_url"),
+        ret=1,
+        err="abort: push failed on remote",
+        out="",
+    )
+
+    worker = MercurialWorker(
+        "mercurial", "phabricator", repositories={"PHID-REPO-mc": repository_mock}
+    )
+    worker.register(bus)
+
+    await bus.send("mercurial", build)
+    assert bus.queues["mercurial"].qsize() == 1
+    task = asyncio.create_task(worker.run())
+
+    # Check the treeherder link was queued
+    mode, out_build, details = await bus.receive("phabricator")
+    task.cancel()
+
+    assert build.retries == 3
+
+    assert mode == "fail:mercurial"
+    assert out_build == build
+    assert details["duration"] > 0
+    assert (
+        details["message"]
+        == "Max number of retries has been reached pushing the build to try repository"
+    )
