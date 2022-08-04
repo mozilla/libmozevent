@@ -314,9 +314,12 @@ class MercurialWorker(object):
             # Find the repository from the diff and trigger the build on it
             repository = self.repositories.get(build.repo_phid)
             if repository is not None:
-                result = self.handle_build(repository, build)
+
+                result = await self.handle_build(repository, build)
                 if result is None:
-                    logger.warning("Retrying build in a new task because of a remote push error")
+                    logger.warning(
+                        "Retrying build in a new task because of a remote push error"
+                    )
                 else:
                     await self.bus.send(self.queue_phabricator, result)
 
@@ -342,7 +345,7 @@ class MercurialWorker(object):
             for patched_file in get_files_touched_in_diff(rev.patch)
         )
 
-    def handle_build(self, repository, build):
+    async def handle_build(self, repository, build):
         """
         Try to load and apply a diff on local clone
         If successful, push to try and send a treeherder link
@@ -387,7 +390,7 @@ class MercurialWorker(object):
 
             if "push failed on remote" in error_log.lower():
                 # In case of an unexpected push fail, put the build task back in the queue
-                self.bus.send(self.queue_name, build)
+                await self.bus.send(self.queue_name, build)
                 return
 
             logger.warn(
