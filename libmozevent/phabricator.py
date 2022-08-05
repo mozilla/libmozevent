@@ -26,6 +26,8 @@ class PhabricatorBuild(object):
         self.revision_id = int(request.rel_url.query.get("revision", 0))
         self.target_phid = request.rel_url.query.get("target")
         self.state = PhabricatorBuildState.Queued
+        # Incremented on an unexpected failure during build's push to try
+        self.retries = 0
 
         if (
             not self.diff_id

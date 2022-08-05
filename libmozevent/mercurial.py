@@ -24,6 +24,8 @@ logger = structlog.get_logger(__name__)
 
 TREEHERDER_URL = "https://treeherder.mozilla.org/#/jobs?repo={}&revision={}"
 DEFAULT_AUTHOR = "libmozevent <release-mgmt-analysis@mozilla.com>"
+# Number of allowed retries on an unexpected push fail
+MAX_PUSH_RETRIES = 4
 
 
 class TryMode(enum.Enum):
@@ -314,8 +316,10 @@ class MercurialWorker(object):
             # Find the repository from the diff and trigger the build on it
             repository = self.repositories.get(build.repo_phid)
             if repository is not None:
-                result = self.handle_build(repository, build)
-                await self.bus.send(self.queue_phabricator, result)
+
+                result = await self.handle_build(repository, build)
+                if result:
+                    await self.bus.send(self.queue_phabricator, result)
 
             else:
                 logger.error(
@@ -339,14 +343,31 @@ class MercurialWorker(object):
             for patched_file in get_files_touched_in_diff(rev.patch)
         )
 
-    def handle_build(self, repository, build):
+    async def handle_build(self, repository, build):
         """
         Try to load and apply a diff on local clone
         If successful, push to try and send a treeherder link
-        If failure, send a unit result with a warning message
+        In case of an unexpected push failure, retry up to MAX_PUSH_RETRIES
+        times by putting the build task back in the queue
+
+        If the build fail, send a unit result with a warning message
         """
         assert isinstance(repository, Repository)
         start = time.time()
+
+        if build.retries > MAX_PUSH_RETRIES:
+            error_log = "Max number of retries has been reached pushing the build to try repository"
+            logger.warn("Mercurial error on diff", error=error_log, build=build)
+            return (
+                "fail:mercurial",
+                build,
+                {"message": error_log, "duration": time.time() - start},
+            )
+        elif build.retries:
+            logger.warning(
+                "Trying to apply build's diff after a remote push error "
+                f"[{build.retries}/{MAX_PUSH_RETRIES}]"
+            )
 
         try:
             # Start by cleaning the repo
@@ -381,6 +402,12 @@ class MercurialWorker(object):
             error_log = e.err
             if isinstance(error_log, bytes):
                 error_log = error_log.decode("utf-8")
+
+            if "push failed on remote" in error_log.lower():
+                # In case of an unexpected push fail, put the build task back in the queue
+                build.retries += 1
+                await self.bus.send(self.queue_name, build)
+                return
 
             logger.warn(
                 "Mercurial error on diff", error=error_log, args=e.args, build=build
