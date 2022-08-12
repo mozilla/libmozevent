@@ -17,6 +17,7 @@ import structlog
 from libmozdata.phabricator import PhabricatorPatch
 
 from libmozevent.phabricator import PhabricatorBuild
+from libmozevent.utils import WorkerMixin
 from libmozevent.utils import batch_checkout
 from libmozevent.utils import robust_checkout
 
@@ -284,7 +285,7 @@ class Repository(object):
         self.repo.pull()
 
 
-class MercurialWorker(object):
+class MercurialWorker(WorkerMixin):
     """
     Mercurial worker maintaining several local clones
     """
@@ -300,27 +301,24 @@ class MercurialWorker(object):
         self.bus = bus
         self.bus.add_queue(self.queue_name)
 
+    async def process_message(self, build):
+        assert isinstance(build, PhabricatorBuild)
+
+        # Find the repository from the diff and trigger the build on it
+        repository = self.repositories.get(build.repo_phid)
+        if repository is not None:
+            result = self.handle_build(repository, build)
+            await self.bus.send(self.queue_phabricator, result)
+
+        else:
+            logger.error("Unsupported repository", repo=build.repo_phid, build=build)
+
     async def run(self):
-        # First clone all repositories
+        # Clone all repositories before awaiting a message
         for repo in self.repositories.values():
             logger.info("Cloning repo {}".format(repo))
             repo.clone()
-
-        # Wait for phabricator diffs to apply
-        while True:
-            build = await self.bus.receive(self.queue_name)
-            assert isinstance(build, PhabricatorBuild)
-
-            # Find the repository from the diff and trigger the build on it
-            repository = self.repositories.get(build.repo_phid)
-            if repository is not None:
-                result = self.handle_build(repository, build)
-                await self.bus.send(self.queue_phabricator, result)
-
-            else:
-                logger.error(
-                    "Unsupported repository", repo=build.repo_phid, build=build
-                )
+        await super().run()
 
     def is_commit_skippable(self, build):
         def get_files_touched_in_diff(rawdiff):
