@@ -135,6 +135,77 @@ def robust_checkout(repo_url, repo_dir, branch=b"tip"):
     hg_run(cmd)
 
 
+class WorkerMixin(object):
+    """
+    A worker listening to a bus event that can be stopped anytime
+    The stop method is not completely safe against concurrent accesses
+    """
+
+    _is_running = True
+    # Mutex to ensure the worker does not start a task while being stopped
+    _lock = asyncio.Lock()
+    # Store the task awaiting a message
+    _message_await = None
+    # And the task consuming the message.
+    # Current task is either None or a tuple containing the task and the message
+    _current_task = None
+
+    async def stop(self):
+        """
+        Stop the current tasks then the worker itself
+        Returns None if no task were actually running
+        Returns the initial message in case the task was not finished
+        """
+        # Use a mutex lock to prevent a new task to be started
+        async with self._lock:
+            self._is_running = False
+
+            # Cancel message awaiting async job
+            if self._message_await is not None:
+                self.message_await.cancel()
+                self.message_await = None
+
+            # Cancel a potential running task
+            if self._current_task is None:
+                return None
+
+            task, message = self._current_task
+            task.cancel()
+            self._current_task = None
+            return message
+
+    async def process_message(self, payload):
+        raise NotImplementedError
+
+    async def get_message(self):
+        return await self.bus.receive(self.queue_name)
+
+    async def run(self):
+        assert getattr(self, "queue_name", None) and getattr(
+            self, "bus", None
+        ), "A queue name and a bus must be defined to run the worker"
+
+        while self._is_running:
+            if self._lock.locked():
+                # We are currently stopping the worker
+                continue
+
+            try:
+                # Wait for a new message in the queue
+                self._message_await = asyncio.create_task(self.get_message())
+                payload = await self._message_await
+                self._message_await = None
+
+                # Process message
+                task = asyncio.create_task(self.process_message(payload))
+                self._current_task = (task, payload)
+                await task
+                self._current_task = None
+
+            except asyncio.CancelledError:
+                log.warning("Stopped any async tasks handled by the worker")
+
+
 class AsyncRedis(object):
     """
     Async context manager to create a redis connection
