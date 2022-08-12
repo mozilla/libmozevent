@@ -141,7 +141,8 @@ class Repository(object):
 
         # When base revision is missing, update to default revision
         hg_base = needed_stack[0].base_revision
-        if not self.has_revision(hg_base):
+        build.missing_base_revision = not self.has_revision(hg_base)
+        if build.missing_base_revision:
             logger.info(
                 "Missing base revision from Phabricator",
                 revision=hg_base,
