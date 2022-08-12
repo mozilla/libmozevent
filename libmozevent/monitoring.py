@@ -10,6 +10,8 @@ from taskcluster.helper import TaskclusterConfig
 from taskcluster.utils import slugId
 from taskcluster.utils import stringDate
 
+from libmozevent.utils import WorkerMixin
+
 logger = structlog.get_logger(__name__)
 
 GROUP_MD = """
@@ -22,7 +24,7 @@ GROUP_MD = """
 TASK_MD = "* [{task_id}]({base_url}/tasks/{task_id})"
 
 
-class Monitoring(object):
+class Monitoring(WorkerMixin):
     """
     A simple monitoring tool sending emails through TC
     every X seconds
@@ -42,6 +44,10 @@ class Monitoring(object):
         self.stats: Dict[str, Dict[str, List[str]]] = {}
         self.emails = emails
 
+        # Time is seconds between processing two successive messages
+        self.messages_period = 7
+        self.next_report_date = None
+
         # Setup Taskcluster services
         self.notify = taskcluster_config.get_service("notify", use_async=True)
         self.queue = taskcluster_config.get_service("queue", use_async=True)
@@ -51,38 +57,28 @@ class Monitoring(object):
         self.bus = bus
         self.bus.add_queue(self.queue_name)
 
-    def next_report(self):
-        """
-        Calc report times
-        """
-        report_date = datetime.utcnow()
-        while True:
-            report_date += timedelta(seconds=self.period)
-            yield report_date
-
-    async def run(self):
+    async def get_message(self):
         """
         Watch task status by using an async queue
         to communicate with other processes
         A report is sent periodically about failed tasks
         """
-        for report_date in self.next_report():
-            while datetime.utcnow() < report_date:
-                # Monitor next task in queue
-                await self.check_task()
-
-                # Sleep a bit before trying a new task
-                await asyncio.sleep(7)
-
-            # Send report when timeout is reached
+        # Regularly send a report
+        if self.next_report_date is None or datetime.utcnow() >= self.next_report_date:
+            self.next_report_date = datetime.utcnow() + timedelta(seconds=self.period)
             self.send_report()
 
-    async def check_task(self):
+        # Sleep a bit before trying a new task
+        await asyncio.sleep(self.messages_period)
+
+        # Monitor next task in queue
+        return await self.bus.receive(self.queue_name)
+
+    async def process_message(self, payload):
         """
         Check next task status in queue
         """
-        # Get next task from queue
-        group_id, hook_id, task_id = await self.bus.receive(self.queue_name)
+        group_id, hook_id, task_id = payload
 
         # Get its status
         try:
