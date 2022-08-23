@@ -9,6 +9,7 @@ from libmozevent.monitoring import Monitoring
 async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
     monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
+    monitoring.messages_period = 1e-6
     monitoring.register(bus)
     await bus.send("testqueue", ("Group1", "Hook1", "Task-invalid"))
     await bus.send("testqueue", ("Group1", "Hook1", "Task-pending"))
@@ -26,11 +27,15 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     assert NotifyMock.email_obj == {}
 
     # Queue throws exception, remove task from queue.
-    await monitoring.check_task()
+    payload = await monitoring.get_message()
+    await monitoring.process_message(payload)
+    assert payload == ("Group1", "Hook1", "Task-invalid")
     assert bus.queues["testqueue"].qsize() == 5
 
     # Task is pending, put it back in the queue.
-    await monitoring.check_task()
+    payload = await monitoring.get_message()
+    await monitoring.process_message(payload)
+    assert payload == ("Group1", "Hook1", "Task-pending")
     assert bus.queues["testqueue"].qsize() == 5
 
     # No report sent, since we haven't collected any stats yet.
@@ -38,12 +43,14 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     assert NotifyMock.email_obj == {}
 
     # Task is completed.
-    await monitoring.check_task()
+    payload = await monitoring.get_message()
+    await monitoring.process_message(payload)
     assert monitoring.stats["Hook1"]["completed"] == ["Task1-completed"]
     assert bus.queues["testqueue"].qsize() == 4
 
     # Another task is completed.
-    await monitoring.check_task()
+    payload = await monitoring.get_message()
+    await monitoring.process_message(payload)
     assert monitoring.stats["Hook1"]["completed"] == [
         "Task1-completed",
         "Task2-completed",
@@ -52,7 +59,8 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
 
     # Task exception.
     assert len(monitoring.queue.created_tasks) == 0
-    await monitoring.check_task()
+    payload = await monitoring.get_message()
+    await monitoring.process_message(payload)
     assert monitoring.stats["Hook1"]["exception"] == []
     assert monitoring.stats["Hook2"]["exception"] == ["Task-exception"]
 
@@ -61,12 +69,14 @@ async def test_monitoring(QueueMock, NotifyMock, mock_taskcluster):
     assert bus.queues["testqueue"].qsize() == 3
 
     # Task failed.
-    await monitoring.check_task()
+    payload = await monitoring.get_message()
+    await monitoring.process_message(payload)
     assert monitoring.stats["Hook1"]["failed"] == ["Task-failed"]
     assert bus.queues["testqueue"].qsize() == 2
 
     # Task is pending, put it back in the queue.
-    await monitoring.check_task()
+    payload = await monitoring.get_message()
+    await monitoring.process_message(payload)
     assert bus.queues["testqueue"].qsize() == 2
 
     content = """# Hook1 tasks for the last period
@@ -125,6 +135,7 @@ async def test_report_all_completed(QueueMock, NotifyMock, mock_taskcluster):
     bus = MessageBus()
     monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
+    monitoring.messages_period = 1e-6
     await bus.send("testqueue", ("Group1", "Hook1", "Task1-completed"))
     await bus.send("testqueue", ("Group1", "Hook1", "Task2-completed"))
     assert bus.queues["testqueue"].qsize() == 2
@@ -132,8 +143,8 @@ async def test_report_all_completed(QueueMock, NotifyMock, mock_taskcluster):
     monitoring.queue = QueueMock
     monitoring.notify = NotifyMock
 
-    await monitoring.check_task()
-    await monitoring.check_task()
+    while bus.queues["testqueue"].qsize() > 0:
+        await monitoring.process_message(await monitoring.get_message())
 
     # No email sent, since all tasks were successful.
     await monitoring.send_report()
@@ -148,6 +159,7 @@ async def test_monitoring_whiteline_between_failed_and_hook(
     bus = MessageBus()
     monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
+    monitoring.messages_period = 1e-6
     await bus.send("testqueue", ("Group1", "Hook1", "Task-failed"))
     await bus.send("testqueue", ("Group1", "Hook2", "Task-failed"))
     assert bus.queues["testqueue"].qsize() == 2
@@ -156,12 +168,12 @@ async def test_monitoring_whiteline_between_failed_and_hook(
     monitoring.notify = NotifyMock
 
     # Task exception.
-    await monitoring.check_task()
+    await monitoring.process_message(await monitoring.get_message())
     assert monitoring.stats["Hook1"]["failed"] == ["Task-failed"]
     assert bus.queues["testqueue"].qsize() == 1
 
     # Task failed.
-    await monitoring.check_task()
+    await monitoring.process_message(await monitoring.get_message())
     assert monitoring.stats["Hook2"]["failed"] == ["Task-failed"]
     assert bus.queues["testqueue"].qsize() == 0
 
@@ -220,6 +232,7 @@ async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskclust
     bus = MessageBus()
     monitoring = Monitoring(mock_taskcluster, "testqueue", ["pinco@pallino"], 1)
     monitoring.register(bus)
+    monitoring.messages_period = 1e-6
     await bus.send("testqueue", ("Group1", "Hook1", "Task-exception-retry:2"))
     await bus.send("testqueue", ("Group1", "Hook2", "Task-exception-retry:0"))
     assert bus.queues["testqueue"].qsize() == 2
@@ -229,7 +242,7 @@ async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskclust
     monitoring.notify = NotifyMock
 
     # Task exception with 2 retries
-    await monitoring.check_task()
+    await monitoring.process_message(await monitoring.get_message())
     assert monitoring.stats["Hook1"]["exception"] == ["Task-exception-retry:2"]
     assert len(monitoring.queue.created_tasks) == 1
     assert bus.queues["testqueue"].qsize() == 2
@@ -245,7 +258,7 @@ async def test_monitoring_retry_exceptions(QueueMock, NotifyMock, mock_taskclust
 
     # Task exception with 0 retries
     # No new task should be created
-    await monitoring.check_task()
+    await monitoring.process_message(await monitoring.get_message())
     assert monitoring.stats["Hook2"]["exception"] == ["Task-exception-retry:0"]
     assert len(monitoring.queue.created_tasks) == 1
     assert bus.queues["testqueue"].qsize() == 1
