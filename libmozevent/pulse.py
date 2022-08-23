@@ -14,6 +14,8 @@ from typing import Tuple
 import aioamqp
 import structlog
 
+from libmozevent.utils import WorkerMixin
+
 logger = structlog.get_logger(__name__)
 
 BusQueue = str
@@ -90,7 +92,7 @@ async def create_pulse_listener(
     return protocol
 
 
-class PulseListener(object):
+class PulseListener(WorkerMixin):
     """
     Pulse queues connector to receive external messages and react to them
     """
@@ -127,7 +129,11 @@ class PulseListener(object):
 
     async def run(self):
         pulse = None
-        while True:
+        while self._is_running:
+            if self._lock.locked():
+                # We are currently stopping the worker
+                continue
+
             try:
                 if pulse is None:
                     pulse = await self.connect()
@@ -140,6 +146,9 @@ class PulseListener(object):
                 logger.exception("Reconnecting pulse client in 5 seconds", error=str(e))
                 pulse = None
                 await asyncio.sleep(5)
+
+            except asyncio.CancelledError:
+                logger.warning("Stopped any async tasks handled by the worker")
 
     def find_matching_queues(self, payload_exchange: str, payload_routes: List[bytes]):
         """
