@@ -27,6 +27,8 @@ class MessageBus(object):
         self.queues = {}
         self.redis_enabled = "REDIS_URL" in os.environ
         logger.info("Redis support", enabled=self.redis_enabled and "yes" or "no")
+        # Stores currently consumed Redis messages
+        self.redis_messages = {}
 
     def add_queue(
         self, name: str, mp: bool = False, redis: bool = False, maxsize: int = -1
@@ -79,10 +81,20 @@ class MessageBus(object):
         logger.debug("Wait for message on bus", queue=name, instance=queue)
 
         if isinstance(queue, RedisQueue):
+
+            # Clean the last processed message as we are awaiting a new one on this queue
+            if name in self.redis_messages:
+                del self.redis_messages[name]
+
             redis = await AsyncRedis.connect()
             assert redis is not None
             _, payload = await redis.blpop(queue.name)
             assert isinstance(payload, bytes)
+
+            # Save the currently processed message
+            # This ensures that we can restore the message in case of a failure
+            self.redis_messages[name] = payload
+
             try:
                 return pickle.loads(payload)
             except Exception as e:
@@ -104,6 +116,18 @@ class MessageBus(object):
                         await asyncio.sleep(1)
 
             return await _get()
+
+    async def restore_redis_messages(self):
+        """
+        Restore currently processed Redis messages
+        This method should be called in case a fail occurred processing
+        messages on one or more queue, in order to retry
+        """
+        redis = await AsyncRedis.connect()
+        assert redis is not None
+        for queue_name, payload in self.redis_messages.items():
+            # Insert as TOP message
+            await redis.lpush(queue_name, payload)
 
     async def run(
         self,
