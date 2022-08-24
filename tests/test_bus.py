@@ -112,7 +112,7 @@ async def test_run_async_without_output_queue():
 
     task = asyncio.create_task(bus.run(torun, "input"))
 
-    await bus.receive("end") == 1
+    assert await bus.receive("end") == 1
     task.cancel()
     assert bus.queues["input"].qsize() == 0
     assert bus.queues["end"].qsize() == 0
