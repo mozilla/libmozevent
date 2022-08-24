@@ -6,6 +6,7 @@ import asyncio
 import contextvars
 import fcntl
 import os
+import signal
 import time
 from typing import Iterable
 
@@ -18,15 +19,22 @@ log = structlog.get_logger(__name__)
 
 def run_tasks(awaitables: Iterable):
     """
-    Helper to run tasks concurrently, but when an exception is raised
-    by one of the tasks, the whole stack stops.
+    Helper to run tasks concurrently
+    When an exception is raised by one of the tasks or a SIGTERM signal is received,
+    the whole stack stops and an asyncio.CancelledError exception is raised
     """
+    event_loop = asyncio.get_event_loop()
+
+    # Create a task grouping all awaitables and running them concurrently
+    task = asyncio.gather(*awaitables)
+
+    def handle_sigterm(*args, **kwargs):
+        task.cancel()
+
+    event_loop.add_signal_handler(signal.SIGTERM, handle_sigterm)
 
     async def _run():
         try:
-            # Create a task grouping all awaitables
-            # and running them concurrently
-            task = asyncio.gather(*awaitables)
             await task
         except Exception as e:
             log.error("Failure while running async tasks", error=str(e))
@@ -35,7 +43,6 @@ def run_tasks(awaitables: Iterable):
             # make sure the other awaitables are cancelled
             task.cancel()
 
-    event_loop = asyncio.get_event_loop()
     event_loop.run_until_complete(_run())
 
 
