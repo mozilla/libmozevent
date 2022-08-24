@@ -174,17 +174,17 @@ class WorkerMixin(object):
             self._current_task = None
             return message
 
-    async def process_message(self, payload):
+    async def process_message(self, payload, *args, **kwargs):
         raise NotImplementedError
 
-    async def get_message(self):
-        return await self.bus.receive(self.queue_name)
-
-    async def run(self):
+    async def get_message(self, *args, **kwargs):
+        # In the default implementation, use worker attributes
         assert getattr(self, "queue_name", None) and getattr(
             self, "bus", None
         ), "A queue name and a bus must be defined to run the worker"
+        return await self.bus.receive(self.queue_name)
 
+    async def run(self, *args, **kwargs):
         while self._is_running:
             if self._lock.locked():
                 # We are currently stopping the worker
@@ -192,12 +192,16 @@ class WorkerMixin(object):
 
             try:
                 # Wait for a new message in the queue
-                self._message_await = asyncio.create_task(self.get_message())
+                self._message_await = asyncio.create_task(
+                    self.get_message(*args, **kwargs)
+                )
                 payload = await self._message_await
                 self._message_await = None
 
                 # Process message
-                task = asyncio.create_task(self.process_message(payload))
+                task = asyncio.create_task(
+                    self.process_message(payload, *args, **kwargs)
+                )
                 self._current_task = (task, payload)
                 await task
                 self._current_task = None

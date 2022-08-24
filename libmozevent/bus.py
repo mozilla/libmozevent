@@ -7,18 +7,18 @@ import os
 import pickle
 from queue import Empty
 from typing import Any
-from typing import Callable
 
 import structlog
 
 from libmozevent.utils import AsyncRedis
+from libmozevent.utils import WorkerMixin
 
 logger = structlog.get_logger(__name__)
 
 RedisQueue = collections.namedtuple("RedisQueue", "name")
 
 
-class MessageBus(object):
+class MessageBus(WorkerMixin):
     """
     Communication bus between processes
     """
@@ -105,12 +105,15 @@ class MessageBus(object):
 
             return await _get()
 
+    async def get_message(self, input_name, **kwargs):
+        return await self.receive(input_name)
+
     async def run(
         self,
-        method: Callable,
-        input_name: str,
-        output_names: list = [],
-        sequential: bool = True,
+        method,
+        input_name,
+        output_names=[],
+        sequential=True,
     ):
         """
         Pass messages from input to output
@@ -127,26 +130,31 @@ class MessageBus(object):
             sequential is True or len(output_names) == 0
         ), "Parallel run is not supported yet when an output queue is defined"
 
-        while True:
-            message = await self.receive(input_name)
+        await super().run(
+            input_name=input_name,
+            method=method,
+            sequential=sequential,
+            output_names=output_names,
+        )
 
-            # Run async or sync methods
-            if inspect.iscoroutinefunction(method):
-                if sequential:
-                    new_message = await method(message)
-                else:
-                    asyncio.create_task(method(message))
+    async def process_message(
+        self, payload, method, sequential, output_names, **kwargs
+    ):
+        # Run async or sync methods
+        if inspect.iscoroutinefunction(method):
+            if sequential:
+                new_message = await method(payload)
             else:
-                assert sequential, "Can't run normal functions in parallel"
-                new_message = method(message)
+                asyncio.create_task(method(payload))
+        else:
+            assert sequential, "Can't run normal functions in parallel"
+            new_message = method(payload)
 
-            for output_name in output_names:
-                if new_message:
-                    await self.send(output_name, new_message)
-                else:
-                    logger.info(
-                        "Skipping new message creation: no result", message=message
-                    )
+        for output_name in output_names:
+            if new_message:
+                await self.send(output_name, new_message)
+            else:
+                logger.info("Skipping new message creation: no result", message=payload)
 
     async def dispatch(self, input_name: str, output_names: list):
         await self.run(lambda m: m, input_name, output_names)
