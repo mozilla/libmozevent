@@ -17,33 +17,47 @@ import structlog
 log = structlog.get_logger(__name__)
 
 
-def run_tasks(awaitables: Iterable):
+def run_tasks(awaitables: Iterable, bus=None):
     """
-    Helper to run tasks concurrently
+    Helper to run tasks concurrently.
+
     When an exception is raised by one of the tasks or a SIGTERM signal is received,
-    the whole stack stops and an asyncio.CancelledError exception is raised
+    the whole stack stops and an asyncio.CancelledError exception is raised.
+
+    In case a bus is provided, Redis messages currently processed by sequential tasks
+    will be put back at the top of their original queue.
     """
-    event_loop = asyncio.get_event_loop()
+    try:
 
-    # Create a task grouping all awaitables and running them concurrently
-    task = asyncio.gather(*awaitables)
+        async def _run():
+            try:
+                # Create a task grouping all awaitables and running them concurrently
+                task = asyncio.gather(*awaitables)
+                await task
+            except Exception as e:
+                log.error("Failure while running async tasks", error=str(e))
 
-    def handle_sigterm(*args, **kwargs):
-        task.cancel()
+                # When ANY exception from one of the awaitables
+                # make sure the other awaitables are cancelled
+                task.cancel()
 
-    event_loop.add_signal_handler(signal.SIGTERM, handle_sigterm)
+        main_task = _run()
 
-    async def _run():
-        try:
-            await task
-        except Exception as e:
-            log.error("Failure while running async tasks", error=str(e))
+        def handle_sigterm(*args, **kwargs):
+            log.warning("SIGTERM signal has been received. Stopping all running tasks…")
+            main_task.cancel()
 
-            # When ANY exception from one of the awaitables
-            # make sure the other awaitables are cancelled
-            task.cancel()
+        event_loop = asyncio.get_event_loop()
+        event_loop.add_signal_handler(signal.SIGTERM, handle_sigterm)
+        event_loop.run_until_complete(_run())
 
-    event_loop.run_until_complete(_run())
+    except asyncio.CancelledError as e:
+        # Either a task raised an unexpected exception or we received a SIGTERM (Heroku
+        # kills dynos at least once a day on prod).
+        if bus is not None:
+            event_loop.run_until_complete(bus.restore_redis_messages())
+
+        raise e
 
 
 def hg_run(cmd):
