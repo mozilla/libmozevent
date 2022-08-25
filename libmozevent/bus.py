@@ -128,8 +128,9 @@ class MessageBus(object):
         redis = await AsyncRedis.connect()
         assert redis is not None
         for queue_name, payload in self.redis_messages.items():
+            queue = self.queues[queue_name]
             # Insert message in the top of the Redis queue
-            await redis.lpush(queue_name, payload)
+            await redis.lpush(queue.name, payload)
 
     async def run(
         self,
