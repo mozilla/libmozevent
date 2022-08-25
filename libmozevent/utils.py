@@ -27,36 +27,38 @@ def run_tasks(awaitables: Iterable, bus=None):
     In case a bus is provided, Redis messages currently processed by sequential tasks
     will be put back at the top of their original queue.
     """
+
     try:
+        # Create a task grouping all awaitables and running them concurrently
+        tasks_group = asyncio.gather(*awaitables)
+    except TypeError:
+        raise TypeError(
+            "Could not run tasks: awaitable parameter must only contain awaitable functions"
+        )
 
-        async def _run():
-            try:
-                # Create a task grouping all awaitables and running them concurrently
-                task = asyncio.gather(*awaitables)
-                await task
-            except Exception as e:
-                log.error("Failure while running async tasks", error=str(e))
+    def handle_sigterm(*args, **kwargs):
+        log.warning("SIGTERM signal has been received. Stopping all running tasks…")
+        tasks_group.cancel()
 
-                # When ANY exception from one of the awaitables
-                # make sure the other awaitables are cancelled
-                task.cancel()
+    event_loop = asyncio.get_event_loop()
+    event_loop.add_signal_handler(signal.SIGTERM, handle_sigterm)
 
-        main_task = _run()
+    async def _run():
+        try:
+            await tasks_group
+        except Exception as e:
+            log.error("Failure while running async tasks", error=str(e))
+            # When ANY exception from one of the awaitables
+            # make sure the other awaitables are cancelled
+            tasks_group.cancel()
 
-        def handle_sigterm(*args, **kwargs):
-            log.warning("SIGTERM signal has been received. Stopping all running tasks…")
-            main_task.cancel()
-
-        event_loop = asyncio.get_event_loop()
-        event_loop.add_signal_handler(signal.SIGTERM, handle_sigterm)
+    try:
         event_loop.run_until_complete(_run())
-
     except asyncio.CancelledError as e:
         # Either a task raised an unexpected exception or we received a SIGTERM (Heroku
         # kills dynos at least once a day on prod).
         if bus is not None:
             event_loop.run_until_complete(bus.restore_redis_messages())
-
         raise e
 
 
