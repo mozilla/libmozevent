@@ -119,14 +119,16 @@ class MessageBus(object):
 
     async def restore_redis_messages(self):
         """
-        Restore currently processed Redis messages
-        This method should be called in case a fail occurred processing
-        messages on one or more queue, in order to retry
+        Restores currently processed Redis messages
+        Only sequential jobs can be restored this way, parallel jobs will be ignored
+        This method should be called in case a fail occurred processing messages on one or more queue,
+        in order to restore non fully processed messages in Redis
         """
+        logger.info("Restoring non processed messages")
         redis = await AsyncRedis.connect()
         assert redis is not None
         for queue_name, payload in self.redis_messages.items():
-            # Insert as TOP message
+            # Insert message in the top of the Redis queue
             await redis.lpush(queue_name, payload)
 
     async def run(
