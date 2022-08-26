@@ -17,15 +17,15 @@ import structlog
 log = structlog.get_logger(__name__)
 
 
-def run_tasks(awaitables: Iterable, bus=None):
+def run_tasks(awaitables: Iterable, bus_to_restore=None):
     """
     Helper to run tasks concurrently.
 
-    When an exception is raised by one of the tasks or a SIGTERM signal is received,
-    the whole stack stops and an asyncio.CancelledError exception is raised.
+    When a task raises an exception, the whole stack stops and the exception is raised.
+    When a SIGTERM is received, the whole stack stops and a asyncio.CancelledError is raised.
 
-    In case a bus is provided, Redis messages currently processed by sequential tasks
-    will be put back at the top of their original queue.
+    In case a SIGTERM is received and bus_to_restore is defined, Redis messages currently
+    processed by sequential tasks will be put back at the top of their original queue.
     """
 
     try:
@@ -37,6 +37,10 @@ def run_tasks(awaitables: Iterable, bus=None):
         )
 
     def handle_sigterm(*args, **kwargs):
+        """
+        Stop all tasks when receiving a SIGTERM.
+        This may particularly happen on Heroku dynos, been stopped at least once a day.
+        """
         log.warning("SIGTERM signal has been received. Stopping all running tasks…")
         tasks_group.cancel()
 
@@ -51,15 +55,14 @@ def run_tasks(awaitables: Iterable, bus=None):
             # When ANY exception from one of the awaitables
             # make sure the other awaitables are cancelled
             tasks_group.cancel()
-            raise asyncio.CancelledError
+            raise e
 
     try:
         event_loop.run_until_complete(_run())
     except asyncio.CancelledError as e:
-        # Either a task raised an unexpected exception or we received a SIGTERM (Heroku
-        # kills dynos at least once a day on prod).
-        if bus is not None:
-            event_loop.run_until_complete(bus.restore_redis_messages())
+        # Tasks have been cancelled intentionally, restore messages in Redis queues
+        if bus_to_restore is not None:
+            event_loop.run_until_complete(bus_to_restore.restore_redis_messages())
         raise e
 
 

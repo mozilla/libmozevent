@@ -36,13 +36,13 @@ def test_run_tasks():
 
 
 @pytest.mark.parametrize(
-    "task_side_effect",
+    "task_side_effect, expected_exception",
     [
-        lambda: os.kill(os.getpid(), signal.SIGTERM),
-        unexpected_error,
+        (lambda: os.kill(os.getpid(), signal.SIGTERM), asyncio.CancelledError),
+        (unexpected_error, Exception),
     ],
 )
-def test_run_tasks_restore_redis_messages(task_side_effect):
+def test_run_tasks_restore_redis_messages(task_side_effect, expected_exception):
     """
     When using a Redis queue, messages are restored in case of an unexpected failure or
     if a SIGTERM is received
@@ -90,8 +90,11 @@ def test_run_tasks_restore_redis_messages(task_side_effect):
         task_side_effect()
         await asyncio.sleep(10)
 
-    with pytest.raises(asyncio.CancelledError):
-        utils.run_tasks([deadly_task()], bus=bus)
+    with pytest.raises(expected_exception):
+        utils.run_tasks([deadly_task()], bus_to_restore=bus)
 
-    # Message has been send back in the queue
-    assert redis_queue == [(queue_name, message)]
+    if expected_exception == asyncio.CancelledError:
+        # In case of a SIGTERM, the message has been restored in the queue
+        assert redis_queue == [(queue_name, message)]
+    else:
+        assert redis_queue == []
