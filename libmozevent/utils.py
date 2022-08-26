@@ -51,6 +51,7 @@ def run_tasks(awaitables: Iterable, bus=None):
             # When ANY exception from one of the awaitables
             # make sure the other awaitables are cancelled
             tasks_group.cancel()
+            raise asyncio.CancelledError
 
     try:
         event_loop.run_until_complete(_run())
