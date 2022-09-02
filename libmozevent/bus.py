@@ -119,10 +119,11 @@ class MessageBus(object):
 
     async def restore_redis_messages(self):
         """
-        Restores currently processed Redis messages
-        Only sequential jobs can be restored this way, parallel jobs will be ignored
-        This method should be called in case a fail occurred processing messages on one or more queue,
-        in order to restore non fully processed messages in Redis
+        Restores a currently processed message for each Redis queue on this bus.
+        Parallel jobs on a same queue will be ignored, as the last processed
+        message is erased when awaiting a new message on the queue.
+        This method can be called when a failure occurs while running jobs on a
+        bus queue, in order to restore non fully processed messages in Redis.
         """
         logger.info("Restoring non processed messages")
         redis = await AsyncRedis.connect()
