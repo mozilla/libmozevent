@@ -3,6 +3,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import asyncio
 import atexit
 import enum
 import io
@@ -10,7 +11,9 @@ import json
 import os
 import tempfile
 import time
+from datetime import datetime
 
+import aiohttp
 import hglib
 import rs_parsepatch
 import structlog
@@ -24,8 +27,14 @@ logger = structlog.get_logger(__name__)
 
 TREEHERDER_URL = "https://treeherder.mozilla.org/#/jobs?repo={}&revision={}"
 DEFAULT_AUTHOR = "libmozevent <release-mgmt-analysis@mozilla.com>"
+# On build failure, check try status until available every 5 minutes and up to 24h
+TRY_STATUS_URL = "https://treestatus.mozilla-releng.net/trees/try"
+TRY_STATUS_DELAY = 5 * 60
+TRY_STATUS_MAX_WAIT = 24 * 60 * 60
 # Number of allowed retries on an unexpected push fail
 MAX_PUSH_RETRIES = 4
+# Wait successive exponential delays: 6sec, 36sec, 3.6min, 21.6min
+PUSH_RETRY_EXPONENTIAL_DELAY = 6
 
 
 class TryMode(enum.Enum):
@@ -344,6 +353,32 @@ class MercurialWorker(object):
             for patched_file in get_files_touched_in_diff(rev.patch)
         )
 
+    async def wait_try_available(self):
+        """
+        Wait until try status is "open"
+        On each failure, wait TRY_STATUS_DELAY before retrying up to TRY_STATUS_MAX_WAIT
+        """
+
+        async def get_status():
+            async with aiohttp.ClientSession() as session:
+                async with session.get(TRY_STATUS_URL) as response:
+                    if response.status != 200:
+                        return
+                    data = await response.json()
+                    return data.get("result", {}).get("status")
+
+        start = datetime.utcnow()
+        while status := await get_status() != "open":
+            if (datetime.utcnow() - start).seconds >= TRY_STATUS_MAX_WAIT:
+                logger.error(
+                    f"Try tree status still closed after {TRY_STATUS_MAX_WAIT} seconds, skipping"
+                )
+                break
+            logger.warning(
+                f"Try tree is not actually open (status: {status}), waiting {TRY_STATUS_DELAY} seconds before retrying"
+            )
+            await asyncio.sleep(TRY_STATUS_DELAY)
+
     async def handle_build(self, repository, build):
         """
         Try to load and apply a diff on local clone
@@ -405,8 +440,16 @@ class MercurialWorker(object):
                 error_log = error_log.decode("utf-8")
 
             if "push failed on remote" in error_log.lower():
-                # In case of an unexpected push fail, put the build task back in the queue
                 build.retries += 1
+                # Ensure try is opened
+                await self.wait_try_available()
+                # Wait an exponential time before retrying the build
+                delay = PUSH_RETRY_EXPONENTIAL_DELAY**build.retries
+                logger.info(
+                    f"An error occurred pushing the build to try, retrying after {delay}s"
+                )
+                await asyncio.sleep(delay)
+                # Put the build task back in the queue
                 await self.bus.send(self.queue_name, build)
                 return
 
