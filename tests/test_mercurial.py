@@ -805,3 +805,97 @@ async def test_push_failure_max_retries(PhabricatorMock, mock_mc):
         ("GET", "http://test.status/try"),
     ]
     assert sleep_history == [2, 4, 8]
+
+
+@responses.activate
+@pytest.mark.asyncio
+async def test_push_closed_try(PhabricatorMock, mock_mc):
+    """
+    Detect when try tree is in a closed state and wait before it is opened to retry
+    """
+
+    diff = {
+        "revisionPHID": "PHID-DREV-badutf8",
+        "baseRevision": "missing",
+        "phid": "PHID-DIFF-badutf8",
+        "id": 555,
+    }
+    build = MockBuild(4444, "PHID-REPO-mc", 5555, "PHID-build-badutf8", diff)
+    with PhabricatorMock as phab:
+        phab.load_patches_stack(build)
+
+    bus = MessageBus()
+    bus.add_queue("phabricator")
+
+    from libmozevent import mercurial
+
+    mercurial.MAX_PUSH_RETRIES = 2
+    mercurial.TRY_STATUS_URL = "http://test.status/try"
+    mercurial.PUSH_RETRY_EXPONENTIAL_DELAY = 2
+    mercurial.TRY_STATUS_DELAY = 42
+    mercurial.TRY_STATUS_MAX_WAIT = 1
+
+    sleep_history = []
+
+    class AsyncioMock(object):
+        async def sleep(self, value):
+            nonlocal sleep_history
+            sleep_history.append(value)
+
+    mercurial.asyncio = AsyncioMock()
+
+    responses.get(
+        "http://test.status/try", status=200, json={"result": {"status": "closed"}}
+    )
+    responses.get("http://test.status/try", status=500)
+    responses.get(
+        "http://test.status/try", status=200, json={"result": {"status": "open"}}
+    )
+
+    repository_mock = MagicMock(spec=Repository)
+    repository_mock.push_to_try.side_effect = [
+        hglib.error.CommandError(
+            args=("push", "try_url"),
+            ret=1,
+            err="abort: push failed on remote",
+            out="",
+        ),
+        mock_mc.repo.tip(),
+    ]
+    repository_mock.try_name = "try"
+    repository_mock.retries = 0
+
+    worker = MercurialWorker(
+        "mercurial", "phabricator", repositories={"PHID-REPO-mc": repository_mock}
+    )
+    worker.register(bus)
+
+    assert bus.queues["mercurial"].qsize() == 0
+
+    resp = await worker.handle_build(repository_mock, build)
+    assert resp is None
+    assert repository_mock.push_to_try.call_count == 1
+
+    assert bus.queues["mercurial"].qsize() == 1
+    assert bus.queues["phabricator"].qsize() == 0
+
+    build = await bus.receive("mercurial")
+    resp = await worker.handle_build(repository_mock, build)
+    assert resp is not None
+    mode, out_build, details = resp
+
+    assert mode == "success"
+    assert out_build == build
+    tip = mock_mc.repo.tip()
+    assert details[
+        "treeherder_url"
+    ] == "https://treeherder.mozilla.org/#/jobs?repo=try&revision={}".format(
+        tip.node.decode("utf-8")
+    )
+    assert details["revision"] == tip.node.decode("utf-8")
+    assert [(call.request.method, call.request.url) for call in responses.calls] == [
+        ("GET", "http://test.status/try"),
+        ("GET", "http://test.status/try"),
+        ("GET", "http://test.status/try"),
+    ]
+    assert sleep_history == [42, 42, 2]
