@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import hglib
 import pytest
+import responses
 
 from conftest import MockBuild
 from libmozevent.bus import MessageBus
@@ -647,6 +648,7 @@ async def test_crash_utf8_author(PhabricatorMock, mock_mc):
     assert details["revision"] == mock_mc.repo.tip().node.decode("utf-8")
 
 
+@responses.activate
 @pytest.mark.asyncio
 async def test_unexpected_push_failure(PhabricatorMock, mock_mc):
     """
@@ -669,6 +671,14 @@ async def test_unexpected_push_failure(PhabricatorMock, mock_mc):
     from libmozevent import mercurial
 
     mercurial.MAX_PUSH_RETRIES = 1
+    mercurial.TRY_STATUS_URL = "http://test.status/try"
+    mercurial.PUSH_RETRY_EXPONENTIAL_DELAY = 0
+    mercurial.TRY_STATUS_DELAY = 0
+    mercurial.TRY_STATUS_MAX_WAIT = 0
+
+    responses.get(
+        "http://test.status/try", status=200, json={"result": {"status": "open"}}
+    )
 
     repository_mock = MagicMock(spec=Repository)
     repository_mock.push_to_try.side_effect = [
@@ -712,8 +722,12 @@ async def test_unexpected_push_failure(PhabricatorMock, mock_mc):
         tip.node.decode("utf-8")
     )
     assert details["revision"] == tip.node.decode("utf-8")
+    assert [(call.request.method, call.request.url) for call in responses.calls] == [
+        ("GET", "http://test.status/try")
+    ]
 
 
+@responses.activate
 @pytest.mark.asyncio
 async def test_push_failure_max_retries(PhabricatorMock, mock_mc):
     """
@@ -736,6 +750,23 @@ async def test_push_failure_max_retries(PhabricatorMock, mock_mc):
     from libmozevent import mercurial
 
     mercurial.MAX_PUSH_RETRIES = 2
+    mercurial.TRY_STATUS_URL = "http://test.status/try"
+    mercurial.PUSH_RETRY_EXPONENTIAL_DELAY = 2
+    mercurial.TRY_STATUS_DELAY = 0
+    mercurial.TRY_STATUS_MAX_WAIT = 0
+
+    sleep_history = []
+
+    class AsyncioMock(object):
+        async def sleep(self, value):
+            nonlocal sleep_history
+            sleep_history.append(value)
+
+    mercurial.asyncio = AsyncioMock()
+
+    responses.get(
+        "http://test.status/try", status=200, json={"result": {"status": "open"}}
+    )
 
     repository_mock = MagicMock(spec=Repository)
     repository_mock.push_to_try.side_effect = hglib.error.CommandError(
@@ -767,3 +798,10 @@ async def test_push_failure_max_retries(PhabricatorMock, mock_mc):
         details["message"]
         == "Max number of retries has been reached pushing the build to try repository"
     )
+
+    assert [(call.request.method, call.request.url) for call in responses.calls] == [
+        ("GET", "http://test.status/try"),
+        ("GET", "http://test.status/try"),
+        ("GET", "http://test.status/try"),
+    ]
+    assert sleep_history == [2, 4, 8]
