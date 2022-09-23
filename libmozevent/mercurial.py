@@ -13,8 +13,8 @@ import tempfile
 import time
 from datetime import datetime
 
-import aiohttp
 import hglib
+import requests
 import rs_parsepatch
 import structlog
 from libmozdata.phabricator import PhabricatorPatch
@@ -359,16 +359,18 @@ class MercurialWorker(object):
         On each failure, wait TRY_STATUS_DELAY before retrying up to TRY_STATUS_MAX_WAIT
         """
 
-        async def get_status():
-            async with aiohttp.ClientSession() as session:
-                async with session.get(TRY_STATUS_URL) as response:
-                    if response.status != 200:
-                        return
-                    data = await response.json()
-                    return data.get("result", {}).get("status")
+        def get_status():
+            try:
+                resp = requests.get(TRY_STATUS_URL)
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                logger.warning(f"An error occurred retrieving try status: {e}")
+            else:
+                return data.get("result", {}).get("status")
 
         start = datetime.utcnow()
-        while status := await get_status() != "open":
+        while status := get_status() != "open":
             if (datetime.utcnow() - start).seconds >= TRY_STATUS_MAX_WAIT:
                 logger.error(
                     f"Try tree status still closed after {TRY_STATUS_MAX_WAIT} seconds, skipping"
