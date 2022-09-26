@@ -52,6 +52,7 @@ repos:
     rev: v0.950
     hooks:
       - id: mypy
+        additional_dependencies: ['types-requests']
   - repo: meta
     hooks:
       - id: check-useless-excludes
