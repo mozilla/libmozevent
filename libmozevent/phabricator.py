@@ -46,7 +46,7 @@ class PhabricatorBuild(object):
         self.reviewers = []
         self.diff = None
         self.stack = []
-        self.initial_base_revision = None
+        self.base_revision = None
         self.missing_base_revision = False
 
     def __str__(self):

@@ -150,7 +150,7 @@ class Repository(object):
 
         # When base revision is missing, update to default revision
         hg_base = needed_stack[0].base_revision
-        build.initial_base_revision = hg_base
+        build.base_revision = hg_base
         build.missing_base_revision = not self.has_revision(hg_base)
         if build.missing_base_revision:
             logger.warning(
@@ -218,7 +218,7 @@ class Repository(object):
                     user=user.encode("utf-8"),
                 )
             except Exception as e:
-                logger.error("Failed to apply patch:  {}".format(e), phid=patch.phid)
+                logger.error("Failed to apply patch: {}".format(e), phid=patch.phid)
                 raise
 
     def add_try_commit(self, build):
