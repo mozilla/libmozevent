@@ -150,9 +150,10 @@ class Repository(object):
 
         # When base revision is missing, update to default revision
         hg_base = needed_stack[0].base_revision
+        build.initial_base_revision = hg_base
         build.missing_base_revision = not self.has_revision(hg_base)
         if build.missing_base_revision:
-            logger.info(
+            logger.warning(
                 "Missing base revision from Phabricator",
                 revision=hg_base,
                 fallback=self.default_revision,
@@ -210,11 +211,15 @@ class Repository(object):
             message += "Differential Diff: {}".format(patch.phid)
 
             logger.info("Applying patch", phid=patch.phid, message=message)
-            self.repo.import_(
-                patches=io.BytesIO(patch.patch.encode("utf-8")),
-                message=message.encode("utf-8"),
-                user=user.encode("utf-8"),
-            )
+            try:
+                self.repo.import_(
+                    patches=io.BytesIO(patch.patch.encode("utf-8")),
+                    message=message.encode("utf-8"),
+                    user=user.encode("utf-8"),
+                )
+            except Exception as e:
+                logger.error("Failed to apply patch:  {}".format(e), phid=patch.phid)
+                raise
 
     def add_try_commit(self, build):
         """
