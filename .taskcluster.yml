@@ -49,7 +49,7 @@ tasks:
       deadline: {$fromNow: '1 hour'}
       payload:
         maxRunTime: 3600
-        image: python:3
+        image: python:3.10
         command:
           - sh
           - -lxce
@@ -69,7 +69,7 @@ tasks:
       deadline: {$fromNow: '1 hour'}
       payload:
         maxRunTime: 3600
-        image: python:3
+        image: python:3.10
         command:
           - sh
           - -lxce
