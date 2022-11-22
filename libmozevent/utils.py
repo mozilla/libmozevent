@@ -51,11 +51,10 @@ def run_tasks(awaitables: Iterable, bus_to_restore=None):
         try:
             await tasks_group
         except Exception as e:
-            log.error("Failure while running async tasks", error=str(e))
+            log.error("Failure while running async tasks", error=str(e), exc_info=True)
             # When ANY exception from one of the awaitables
             # make sure the other awaitables are cancelled
             tasks_group.cancel()
-            raise e
 
     try:
         event_loop.run_until_complete(_run())
@@ -101,7 +100,9 @@ def hg_run(cmd):
 
     out, err = proc.communicate()
     if proc.returncode != 0:
-        log.error("Mercurial {} failure".format(main_cmd), out=out, err=err)
+        log.error(
+            "Mercurial {} failure".format(main_cmd), out=out, err=err, exc_info=True
+        )
         raise hglib.error.CommandError(cmd, proc.returncode, out, err)
 
     return out
