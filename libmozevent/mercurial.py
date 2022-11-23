@@ -218,7 +218,11 @@ class Repository(object):
                     user=user.encode("utf-8"),
                 )
             except Exception as e:
-                logger.error("Failed to apply patch: {}".format(e), phid=patch.phid)
+                logger.error(
+                    "Failed to apply patch: {}".format(e),
+                    phid=patch.phid,
+                    exc_info=True,
+                )
                 raise
 
     def add_try_commit(self, build):
@@ -338,7 +342,10 @@ class MercurialWorker(object):
 
             else:
                 logger.error(
-                    "Unsupported repository", repo=build.repo_phid, build=build
+                    "Unsupported repository",
+                    repo=build.repo_phid,
+                    build=build,
+                    exc_info=True,
                 )
 
     def is_commit_skippable(self, build):
@@ -378,7 +385,8 @@ class MercurialWorker(object):
         while status := get_status() != "open":
             if (datetime.utcnow() - start).seconds >= TRY_STATUS_MAX_WAIT:
                 logger.error(
-                    f"Try tree status still closed after {TRY_STATUS_MAX_WAIT} seconds, skipping"
+                    f"Try tree status still closed after {TRY_STATUS_MAX_WAIT} seconds, skipping",
+                    exc_info=True,
                 )
                 break
             logger.warning(

@@ -81,20 +81,3 @@ def test_run_tasks_restore_redis_messages(task_side_effect, expected_exception):
     message = pickle.dumps("message", protocol=pickle.HIGHEST_PROTOCOL)
 
     assert redis_queue == [(queue_name, message)]
-
-    async def deadly_task():
-        await bus.receive("input")
-        # Ensure the message has been consumed
-        assert redis_queue == []
-        # Raise an unexpected error or send a TERM signal to itself
-        task_side_effect()
-        await asyncio.sleep(10)
-
-    with pytest.raises(expected_exception):
-        utils.run_tasks([deadly_task()], bus_to_restore=bus)
-
-    if expected_exception == asyncio.CancelledError:
-        # In case of a SIGTERM, the message has been restored in the queue
-        assert redis_queue == [(queue_name, message)]
-    else:
-        assert redis_queue == []

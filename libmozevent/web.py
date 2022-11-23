@@ -74,7 +74,7 @@ class WebServer(object):
             build = PhabricatorBuild(request)
             await self.bus.send(self.queue_name, build)
         except Exception as e:
-            logger.error(str(e), path=request.path_qs)
+            logger.error(str(e), path=request.path_qs, exc_info=True)
             raise web.HTTPBadRequest(text=str(e))
 
         logger.info("Queued new build", build=str(build))
