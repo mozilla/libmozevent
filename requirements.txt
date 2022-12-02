@@ -1,9 +1,9 @@
 aioamqp>=0.13.0
 aiohttp
-aioredis>=2.0.0
 libmozdata
 python-hglib
 pytoml
+redis
 requests
 rs_parsepatch
 structlog

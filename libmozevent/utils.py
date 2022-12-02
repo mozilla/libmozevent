@@ -10,9 +10,9 @@ import signal
 import time
 from typing import Iterable
 
-import aioredis
 import hglib
 import structlog
+from redis import asyncio as aioredis
 
 log = structlog.get_logger(__name__)
 
@@ -168,7 +168,9 @@ class AsyncRedis(object):
     Async context manager to create a redis connection
     """
 
-    redis: aioredis.Redis = contextvars.ContextVar("redis-server")
+    redis: contextvars.ContextVar[aioredis.Redis] = contextvars.ContextVar(
+        "redis-server"
+    )
 
     @staticmethod
     async def connect():
