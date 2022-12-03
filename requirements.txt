@@ -3,7 +3,7 @@ aiohttp
 libmozdata
 python-hglib
 pytoml
-redis
+redis==4.3.5
 requests
 rs_parsepatch
 structlog
