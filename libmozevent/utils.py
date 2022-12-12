@@ -13,6 +13,15 @@ from typing import Iterable
 import hglib
 import structlog
 from redis import asyncio as aioredis
+from redis.asyncio.retry import Retry
+from redis.backoff import ExponentialBackoff
+from redis.exceptions import ConnectionError
+from redis.exceptions import ExecAbortError
+from redis.exceptions import PubSubError
+from redis.exceptions import RedisError
+from redis.exceptions import ResponseError
+from redis.exceptions import TimeoutError
+from redis.exceptions import WatchError
 
 log = structlog.get_logger(__name__)
 
@@ -175,16 +184,33 @@ class AsyncRedis(object):
     @staticmethod
     async def connect():
         if AsyncRedis.redis.get(None) is None:
+            retry_on_error = [
+                ConnectionError,
+                ExecAbortError,
+                PubSubError,
+                RedisError,
+                ResponseError,
+                TimeoutError,
+                WatchError,
+            ]
+
+            RETRIES = 5
             AsyncRedis.redis.set(
                 await aioredis.from_url(
                     os.environ["REDIS_TLS_URL"],
                     decode_responses=False,
                     ssl_cert_reqs=None,
+                    health_check_interval=30,
+                    retry_on_error=retry_on_error,
+                    retry=Retry(ExponentialBackoff(cap=7, base=1), RETRIES),
                 )
                 if os.getenv("REDIS_TLS_URL", None) is not None
                 else await aioredis.from_url(
                     os.environ["REDIS_URL"],
                     decode_responses=False,
+                    health_check_interval=30,
+                    retry_on_error=retry_on_error,
+                    retry=Retry(ExponentialBackoff(cap=7, base=1), RETRIES),
                 )
             )
         return AsyncRedis.redis.get()
