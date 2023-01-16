@@ -218,7 +218,7 @@ class Repository(object):
                     user=user.encode("utf-8"),
                 )
             except Exception as e:
-                logger.error(
+                logger.info(
                     "Failed to apply patch: {}".format(e),
                     phid=patch.phid,
                     exc_info=True,
