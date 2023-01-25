@@ -5,10 +5,10 @@
 import asyncio
 import contextvars
 import fcntl
-from functools import lru_cache
 import os
 import signal
 import time
+from functools import lru_cache
 from typing import Iterable
 
 import hglib
