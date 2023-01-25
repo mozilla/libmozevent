@@ -5,6 +5,7 @@ import time
 
 import structlog
 from libmozdata.phabricator import PhabricatorAPI
+
 from libmozevent.utils import get_session
 
 logger = structlog.get_logger(__name__)
