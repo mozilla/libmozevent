@@ -22,10 +22,16 @@ class PhabricatorBuild(object):
     """
 
     def __init__(self, request):
-        self.diff_id = int(get_session("phabricator", request).rel_url.query.get("diff", 0))
+        self.diff_id = int(
+            get_session("phabricator", request).rel_url.query.get("diff", 0)
+        )
         self.repo_phid = get_session("phabricator", request).rel_url.query.get("repo")
-        self.revision_id = int(get_session("phabricator", request).rel_url.query.get("revision", 0))
-        self.target_phid = get_session("phabricator", request).rel_url.query.get("target")
+        self.revision_id = int(
+            get_session("phabricator", request).rel_url.query.get("revision", 0)
+        )
+        self.target_phid = get_session("phabricator", request).rel_url.query.get(
+            "target"
+        )
         self.state = PhabricatorBuildState.Queued
         # Incremented on an unexpected failure during build's push to try
         self.retries = 0
