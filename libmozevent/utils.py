@@ -23,6 +23,7 @@ from redis.exceptions import RedisError
 from redis.exceptions import ResponseError
 from redis.exceptions import TimeoutError
 from redis.exceptions import WatchError
+from requests.packages.urllib3.util.retry import Retry
 
 log = structlog.get_logger(__name__)
 
