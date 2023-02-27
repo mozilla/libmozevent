@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import os
 from multiprocessing import Process
 
@@ -66,7 +67,7 @@ class WebServer(object):
         """
         try:
             with open(self.version_path, "r") as version_file:
-                version = version_file.read()
+                version = json.loads(version_file.read())
         except Exception:
             return web.HTTPInternalServerError(
                 reason="Could not retrieve the version file"
