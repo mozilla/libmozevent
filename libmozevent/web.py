@@ -64,9 +64,15 @@ class WebServer(object):
         HTTP GET version
         Following Dockerflow protocol
         """
-        with open(self.version_path, "r") as version_file:
-            version = version_file.read()
-        return web.Response(body=version)
+        try:
+            with open(self.version_path, "r") as version_file:
+                version = version_file.read()
+        except Exception:
+            return web.HTTPInternalServerError(
+                reason="Could not retrieve the version file"
+            )
+
+        return web.json_response(version)
 
     async def get_heartbeat(self, request):
         """
