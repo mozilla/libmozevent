@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import os
 from multiprocessing import Process
 
@@ -15,16 +16,21 @@ class WebServer(object):
     WebServer used to receive hook
     """
 
-    def __init__(self, queue_name):
+    def __init__(self, queue_name, version_path="/app/version.json"):
         self.process = None
         self.http_port = int(os.environ.get("PORT", 9000))
         self.queue_name = queue_name
         logger.info("HTTP webhook server will listen", port=self.http_port)
 
+        self.version_path = version_path
+
         # Configure the web application with code review routes
         self.app = web.Application()
         self.app.add_routes(
             [
+                web.get("/__version__", self.get_version),
+                web.get("/__heartbeat__", self.get_heartbeat),
+                web.get("/__lbheartbeat__", self.get_lbheartbeat),
                 web.get("/ping", self.ping),
                 web.post("/codereview/new", self.create_code_review),
             ]
@@ -53,6 +59,33 @@ class WebServer(object):
         assert self.process is not None, "Web server not started"
         self.process.kill()
         logger.info("Web server stopped")
+
+    async def get_version(self, request):
+        """
+        HTTP GET version
+        Following Dockerflow protocol
+        """
+        try:
+            with open(self.version_path, "r") as version_file:
+                version = json.loads(version_file.read())
+        except Exception:
+            return web.Response(body="Could not retrieve the version file", status=500)
+
+        return web.json_response(version)
+
+    async def get_heartbeat(self, request):
+        """
+        HTTP GET heartbeat for backing services
+        Following Dockerflow protocol
+        """
+        return web.Response()
+
+    async def get_lbheartbeat(self, request):
+        """
+        HTTP GET heartbeat for load balancer
+        Following Dockerflow protocol
+        """
+        return web.Response()
 
     async def ping(self, request):
         """
