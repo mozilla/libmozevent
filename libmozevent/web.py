@@ -69,9 +69,7 @@ class WebServer(object):
             with open(self.version_path, "r") as version_file:
                 version = json.loads(version_file.read())
         except Exception:
-            return web.HTTPInternalServerError(
-                reason="Could not retrieve the version file"
-            )
+            return web.Response(body="Could not retrieve the version file", status=500)
 
         return web.json_response(version)
 
@@ -80,14 +78,14 @@ class WebServer(object):
         HTTP GET heartbeat for backing services
         Following Dockerflow protocol
         """
-        return web.HTTPOk()
+        return web.Response()
 
     async def get_lbheartbeat(self, request):
         """
         HTTP GET heartbeat for load balancer
         Following Dockerflow protocol
         """
-        return web.HTTPOk()
+        return web.Response()
 
     async def ping(self, request):
         """

@@ -1,6 +1,5 @@
 aioamqp>=0.13.0
 aiohttp
-dockerflow==2022.8.0
 libmozdata
 python-hglib
 pytoml
