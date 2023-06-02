@@ -335,7 +335,6 @@ class MercurialWorker(object):
             # Find the repository from the diff and trigger the build on it
             repository = self.repositories.get(build.repo_phid)
             if repository is not None:
-
                 result = await self.handle_build(repository, build)
                 if result:
                     await self.bus.send(self.queue_phabricator, result)
@@ -454,7 +453,21 @@ class MercurialWorker(object):
             if isinstance(error_log, bytes):
                 error_log = error_log.decode("utf-8")
 
-            if "push failed on remote" in error_log.lower():
+            def is_eligible_for_retry(error):
+                """
+                Given a Mercurial error message, if it's an error likely due to a temporary connection problem, consider it as eligible for retry.
+                """
+                eligible_errors = [
+                    "push failed on remote",
+                    "stream ended unexpectedly",
+                    "error: EOF occurred in violation of protocol",
+                ]
+                for eligible_message in eligible_errors:
+                    if eligible_message in error_log:
+                        return True
+                return False
+
+            if is_eligible_for_retry(error_log.lower()):
                 build.retries += 1
                 # Ensure try is opened
                 await self.wait_try_available()
