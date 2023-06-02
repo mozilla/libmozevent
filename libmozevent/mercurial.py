@@ -455,8 +455,7 @@ class MercurialWorker(object):
 
             def is_eligible_for_retry(error):
                 """
-                Given a Mercurial error message, if it's like on of our cached
-                ones then it's eligible for retry
+                Given a Mercurial error message, if it's an error likely due to a temporary connection problem, consider it as eligible for retry.
                 """
                 eligible_errors = [
                     "push failed on remote",
