@@ -48,6 +48,7 @@ class PhabricatorBuild(object):
         self.stack = []
         self.base_revision = None
         self.missing_base_revision = False
+        self.actual_base_revision = None
 
     def __str__(self):
         return "Revision {} - {}".format(self.revision_id, self.target_phid)
