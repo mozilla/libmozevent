@@ -404,8 +404,9 @@ class MercurialWorker(object):
         eligible_errors = [
             "push failed on remote",
             "stream ended unexpectedly",
-            "error: EOF occurred in violation of protocol",
+            "error: eof occurred in violation of protocol",
         ]
+        error = error.lower()
         for eligible_message in eligible_errors:
             if eligible_message in error:
                 return True
@@ -471,7 +472,7 @@ class MercurialWorker(object):
             if isinstance(error_log, bytes):
                 error_log = error_log.decode("utf-8")
 
-            if self.is_eligible_for_retry(error_log.lower()):
+            if self.is_eligible_for_retry(error_log):
                 build.retries += 1
                 # Ensure try is opened
                 await self.wait_try_available()
