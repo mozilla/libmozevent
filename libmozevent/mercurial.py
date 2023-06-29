@@ -396,6 +396,21 @@ class MercurialWorker(object):
             )
             await asyncio.sleep(TRY_STATUS_DELAY)
 
+    def is_eligible_for_retry(self, error):
+        """
+        Given a Mercurial error message, if it's an error likely due to a
+        temporary connection problem, consider it as eligible for retry.
+        """
+        eligible_errors = [
+            "push failed on remote",
+            "stream ended unexpectedly",
+            "error: EOF occurred in violation of protocol",
+        ]
+        for eligible_message in eligible_errors:
+            if eligible_message in error:
+                return True
+        return False
+
     async def handle_build(self, repository, build):
         """
         Try to load and apply a diff on local clone
@@ -456,21 +471,7 @@ class MercurialWorker(object):
             if isinstance(error_log, bytes):
                 error_log = error_log.decode("utf-8")
 
-            def is_eligible_for_retry(error):
-                """
-                Given a Mercurial error message, if it's an error likely due to a temporary connection problem, consider it as eligible for retry.
-                """
-                eligible_errors = [
-                    "push failed on remote",
-                    "stream ended unexpectedly",
-                    "error: EOF occurred in violation of protocol",
-                ]
-                for eligible_message in eligible_errors:
-                    if eligible_message in error_log:
-                        return True
-                return False
-
-            if is_eligible_for_retry(error_log.lower()):
+            if self.is_eligible_for_retry(error_log.lower()):
                 build.retries += 1
                 # Ensure try is opened
                 await self.wait_try_available()
