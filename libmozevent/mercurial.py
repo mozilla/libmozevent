@@ -313,6 +313,15 @@ class MercurialWorker(object):
     Mercurial worker maintaining several local clones
     """
 
+    ELIGIBLE_RETRY_ERRORS = [
+        error.lower()
+        for error in [
+            "push failed on remote",
+            "stream ended unexpectedly",
+            "error: EOF occurred in violation of protocol",
+        ]
+    ]
+
     def __init__(self, queue_name, queue_phabricator, repositories, skippable_files=[]):
         assert all(map(lambda r: isinstance(r, Repository), repositories.values()))
         self.queue_name = queue_name
@@ -401,16 +410,10 @@ class MercurialWorker(object):
         Given a Mercurial error message, if it's an error likely due to a
         temporary connection problem, consider it as eligible for retry.
         """
-        eligible_errors = [
-            "push failed on remote",
-            "stream ended unexpectedly",
-            "error: eof occurred in violation of protocol",
-        ]
         error = error.lower()
-        for eligible_message in eligible_errors:
-            if eligible_message in error:
-                return True
-        return False
+        return any(
+            eligible_message in error for eligible_message in self.ELIGIBLE_RETRY_ERRORS
+        )
 
     async def handle_build(self, repository, build):
         """
