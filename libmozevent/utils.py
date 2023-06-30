@@ -8,6 +8,7 @@ import fcntl
 import os
 import signal
 import time
+from functools import lru_cache
 from typing import Iterable
 
 import hglib
@@ -22,8 +23,27 @@ from redis.exceptions import RedisError
 from redis.exceptions import ResponseError
 from redis.exceptions import TimeoutError
 from redis.exceptions import WatchError
+from requests.packages.urllib3.util.retry import Retry
 
 log = structlog.get_logger(__name__)
+
+
+@lru_cache(maxsize=None)
+def get_session(name: str, requests):
+    session = requests.Session()
+
+    retry = Retry(total=9, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+
+    # Default HTTPAdapter uses 10 connections. Mount custom adapter to increase
+    # that limit. Connections are established as needed, so using a large value
+    # should not negatively impact performance.
+    http_adapter = requests.adapters.HTTPAdapter(
+        pool_connections=50, pool_maxsize=50, max_retries=retry
+    )
+    session.mount("https://", http_adapter)
+    session.mount("http://", http_adapter)
+
+    return session
 
 
 def run_tasks(awaitables: Iterable, bus_to_restore=None):
