@@ -58,6 +58,10 @@ class Repository(object):
         self.try_syntax = config.get("try_syntax")
         self.try_name = config.get("try_name", "try")
         self.default_revision = config.get("default_revision", "tip")
+
+        # Apply patches to the latest revision when `True`.
+        self.use_latest_revision = config.get("use_latest_revision", False)
+
         if self.try_mode == TryMode.syntax:
             assert self.try_syntax, "Missing try syntax"
         self._repo = None
@@ -124,6 +128,15 @@ class Repository(object):
         except hglib.error.CommandError:
             return False
 
+    def get_base_identifier(self, needed_stack: list[PhabricatorPatch]) -> str:
+        """Return the base identifier to apply patches against."""
+        if self.use_latest_revision:
+            # Use `tip` when `use_latest_revision` is `True`.
+            return "tip"
+
+        # Otherwise use the base/parent revision of first revision in the stack.
+        return needed_stack[0].base_revision
+
     def apply_build(self, build):
         """
         Apply a stack of patches to mercurial repo
@@ -147,8 +160,9 @@ class Repository(object):
             logger.info("All the patches are already applied")
             return
 
+        hg_base = self.get_base_identifier(needed_stack)
+
         # When base revision is missing, update to default revision
-        hg_base = needed_stack[0].base_revision
         build.base_revision = hg_base
         build.missing_base_revision = not self.has_revision(hg_base)
         if build.missing_base_revision:
