@@ -9,6 +9,7 @@ import pytest
 import responses
 from conftest import MockBuild
 
+from libmozdata.phabricator import PhabricatorPatch
 from libmozevent.bus import MessageBus
 from libmozevent.mercurial import MercurialWorker, Repository
 
@@ -898,3 +899,21 @@ async def test_push_closed_try(PhabricatorMock, mock_mc):
         ("GET", "http://test.status/try"),
     ]
     assert sleep_history == [42, 42, 2]
+
+
+def test_get_base_identifier(mock_mc):
+    stack = [
+        PhabricatorPatch(1, "PHID-abc", "", "abc", None),
+        PhabricatorPatch(2, "PHID-def", "", "def", None),
+        PhabricatorPatch(3, "PHID-ghi", "", "ghi", None),
+    ]
+
+    assert (
+        mock_mc.get_base_identifier(stack) == "abc"
+    ), "The base commit of the stack should be returned."
+
+    mock_mc.use_latest_revision = True
+
+    assert (
+        mock_mc.get_base_identifier(stack) == "tip"
+    ), "`tip` commit should be used when `use_latest_revision` is `True`."
