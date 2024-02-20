@@ -15,13 +15,15 @@ import structlog
 from redis import asyncio as aioredis
 from redis.asyncio.retry import Retry
 from redis.backoff import ExponentialBackoff
-from redis.exceptions import ConnectionError
-from redis.exceptions import ExecAbortError
-from redis.exceptions import PubSubError
-from redis.exceptions import RedisError
-from redis.exceptions import ResponseError
-from redis.exceptions import TimeoutError
-from redis.exceptions import WatchError
+from redis.exceptions import (
+    ConnectionError,
+    ExecAbortError,
+    PubSubError,
+    RedisError,
+    ResponseError,
+    TimeoutError,
+    WatchError,
+)
 
 log = structlog.get_logger(__name__)
 

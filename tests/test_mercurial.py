@@ -7,11 +7,10 @@ from unittest.mock import MagicMock
 import hglib
 import pytest
 import responses
-
 from conftest import MockBuild
+
 from libmozevent.bus import MessageBus
-from libmozevent.mercurial import MercurialWorker
-from libmozevent.mercurial import Repository
+from libmozevent.mercurial import MercurialWorker, Repository
 
 MERCURIAL_FAILURE = """unable to find 'crash.txt' for patching
 (use '--prefix' to apply patch relative to the current directory)

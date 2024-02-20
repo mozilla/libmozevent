@@ -6,8 +6,7 @@ import multiprocessing
 import os
 import pickle
 from queue import Empty
-from typing import Any
-from typing import Callable
+from typing import Any, Callable
 
 import structlog
 
@@ -81,7 +80,6 @@ class MessageBus(object):
         logger.debug("Wait for message on bus", queue=name, instance=queue)
 
         if isinstance(queue, RedisQueue):
-
             # Clean the last processed message as we are awaiting a new one on this queue
             if name in self.redis_messages:
                 del self.redis_messages[name]

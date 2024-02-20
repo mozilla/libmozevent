@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 import asyncio
-from datetime import datetime
-from datetime import timedelta
-from typing import Dict
-from typing import List
+from datetime import datetime, timedelta
+from typing import Dict, List
 
 import structlog
 from taskcluster.helper import TaskclusterConfig
-from taskcluster.utils import slugId
-from taskcluster.utils import stringDate
+from taskcluster.utils import slugId, stringDate
 
 logger = structlog.get_logger(__name__)
 
@@ -96,7 +93,6 @@ class Monitoring(object):
         task_status = status["status"]["state"]
 
         if task_status in ("failed", "completed", "exception"):
-
             # Retry tasks in exception
             if task_status == "exception":
                 await self.retry_task(group_id, hook_id, task_id)

@@ -3,6 +3,7 @@ import time
 from unittest.mock import Mock
 
 from conftest import MockBuild
+
 from libmozevent.phabricator import PhabricatorBuildState
 
 
@@ -14,7 +15,6 @@ def test_backoff(PhabricatorMock):
     build.state = PhabricatorBuildState.Queued
 
     with PhabricatorMock as phab:
-
         # Lower the max time to sleep to keep a speedy test
         phab.sleep = 0.1
 

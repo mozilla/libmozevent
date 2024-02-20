@@ -9,8 +9,7 @@ import json
 import os.path
 import urllib.parse
 from contextlib import contextmanager
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import hglib
@@ -20,9 +19,11 @@ from taskcluster.helper import TaskclusterConfig
 from taskcluster.utils import stringDate
 
 from libmozevent.mercurial import Repository
-from libmozevent.phabricator import PhabricatorActions
-from libmozevent.phabricator import PhabricatorBuild
-from libmozevent.phabricator import PhabricatorBuildState
+from libmozevent.phabricator import (
+    PhabricatorActions,
+    PhabricatorBuild,
+    PhabricatorBuildState,
+)
 
 MOCK_DIR = os.path.join(os.path.dirname(__file__), "mocks")
 
@@ -193,7 +194,6 @@ def PhabricatorMock():
         return (200, json_headers, _response(mock_name))
 
     with responses.RequestsMock(assert_all_requests_are_fired=False) as resp:
-
         resp.add(
             responses.POST,
             "http://phabricator.test/api/user.whoami",

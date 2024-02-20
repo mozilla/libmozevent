@@ -8,9 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 from libmozevent import utils
-from libmozevent.bus import AsyncRedis
-from libmozevent.bus import MessageBus
-from libmozevent.bus import RedisQueue
+from libmozevent.bus import AsyncRedis, MessageBus, RedisQueue
 
 
 def unexpected_error():

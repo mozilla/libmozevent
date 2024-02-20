@@ -7,9 +7,7 @@ import asyncio
 import fnmatch
 import itertools
 import json
-from typing import Dict
-from typing import List
-from typing import Tuple
+from typing import Dict, List, Tuple
 
 import aioamqp
 import structlog
@@ -147,7 +145,6 @@ class PulseListener(object):
         """
 
         def _match(exchange, route):
-
             # Exchanges must match exactly
             if payload_exchange != exchange:
                 return False
