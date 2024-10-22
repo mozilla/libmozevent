@@ -3,7 +3,6 @@ import asyncio
 import json
 import os.path
 from unittest.mock import MagicMock
-from datetime import timedelta
 
 import hglib
 import pytest
@@ -928,6 +927,7 @@ async def test_push_failure_diff_expiry(PhabricatorMock, mock_mc):
         "baseRevision": "missing",
         "phid": "PHID-DIFF-badutf8",
         "id": 555,
+        # a date in 2017
         "fields": {"dateCreated": 1510251135},
     }
     build = MockBuild(4444, "PHID-REPO-mc", 5555, "PHID-build-badutf8", diff)
@@ -939,7 +939,6 @@ async def test_push_failure_diff_expiry(PhabricatorMock, mock_mc):
 
     from libmozevent import mercurial
 
-    mercurial.DIFF_EXPIRY = timedelta(hours=24)
     mercurial.TRY_STATUS_URL = "http://test.status/try"
 
     sleep_history = []
