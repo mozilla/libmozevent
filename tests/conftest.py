@@ -5,8 +5,10 @@
 
 import asyncio
 import collections
+from configparser import ConfigParser
 import json
 import os.path
+import tempfile
 import urllib.parse
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -345,6 +347,17 @@ def mock_taskcluster():
 
 class MockBuild(PhabricatorBuild):
     def __init__(self, diff_id, repo_phid, revision_id, target_phid, diff):
+        config_file = tempfile.NamedTemporaryFile()
+        with open(config_file.name, "w") as f:
+            custom_conf = ConfigParser()
+            custom_conf.add_section("User-Agent")
+            custom_conf.set("User-Agent", "name", "libmozdata")
+            custom_conf.write(f)
+            f.seek(0)
+        from libmozdata import config
+
+        config.set_config(config.ConfigIni(config_file.name))
+
         self.diff_id = diff_id
         self.repo_phid = repo_phid
         self.revision_id = revision_id
