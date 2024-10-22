@@ -11,7 +11,7 @@ import json
 import os
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import hglib
 import requests
@@ -34,6 +34,9 @@ TRY_STATUS_MAX_WAIT = 24 * 60 * 60
 MAX_PUSH_RETRIES = 4
 # Wait successive exponential delays: 6sec, 36sec, 3.6min, 21.6min
 PUSH_RETRY_EXPONENTIAL_DELAY = 6
+# Time after which a Phabricator revision should be considered as expired and the
+# try push should no longer be retried
+DIFF_EXPIRY = timedelta(hours=1)
 
 
 class TryMode(enum.Enum):
@@ -443,6 +446,21 @@ class MercurialWorker(object):
         if build.retries > MAX_PUSH_RETRIES:
             error_log = "Max number of retries has been reached pushing the build to try repository"
             logger.warn("Mercurial error on diff", error=error_log, build=build)
+            return (
+                "fail:mercurial",
+                build,
+                {"message": error_log, "duration": time.time() - start},
+            )
+        if (
+            build.diff.get("fields")
+            and build.diff["fields"].get("dateCreated")
+            and (
+                datetime.now()
+                - datetime.fromtimestamp(build.diff["fields"]["dateCreated"])
+                > DIFF_EXPIRY
+            )
+        ):
+            error_log = "This build is too old to push to try repository"
             return (
                 "fail:mercurial",
                 build,
