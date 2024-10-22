@@ -34,9 +34,6 @@ TRY_STATUS_MAX_WAIT = 24 * 60 * 60
 MAX_PUSH_RETRIES = 4
 # Wait successive exponential delays: 6sec, 36sec, 3.6min, 21.6min
 PUSH_RETRY_EXPONENTIAL_DELAY = 6
-# Time after which a Phabricator revision should be considered as expired and the
-# try push should no longer be retried
-DIFF_EXPIRY = timedelta(hours=1)
 
 
 class TryMode(enum.Enum):
@@ -338,12 +335,20 @@ class MercurialWorker(object):
         ]
     ]
 
-    def __init__(self, queue_name, queue_phabricator, repositories, skippable_files=[]):
+    def __init__(
+        self,
+        queue_name,
+        queue_phabricator,
+        repositories,
+        diff_expiry=timedelta(hours=24),
+        skippable_files=[],
+    ):
         assert all(map(lambda r: isinstance(r, Repository), repositories.values()))
         self.queue_name = queue_name
         self.queue_phabricator = queue_phabricator
         self.repositories = repositories
         self.skippable_files = skippable_files
+        self.diff_expiry = diff_expiry
 
     def register(self, bus):
         self.bus = bus
@@ -457,7 +462,7 @@ class MercurialWorker(object):
             and (
                 datetime.now()
                 - datetime.fromtimestamp(build.diff["fields"]["dateCreated"])
-                > DIFF_EXPIRY
+                > self.diff_expiry
             )
         ):
             error_log = "This build is too old to push to try repository"
