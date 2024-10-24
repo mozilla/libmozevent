@@ -917,3 +917,64 @@ def test_get_base_identifier(mock_mc):
     assert (
         mock_mc.get_base_identifier(stack) == "tip"
     ), "`tip` commit should be used when `use_latest_revision` is `True`."
+
+
+@responses.activate
+@pytest.mark.asyncio
+async def test_push_failure_diff_expiry(PhabricatorMock, mock_mc):
+    diff = {
+        "revisionPHID": "PHID-DREV-badutf8",
+        "baseRevision": "missing",
+        "phid": "PHID-DIFF-badutf8",
+        "id": 555,
+        # a date in 2017
+        "fields": {"dateCreated": 1510251135},
+    }
+    build = MockBuild(4444, "PHID-REPO-mc", 5555, "PHID-build-badutf8", diff)
+    with PhabricatorMock as phab:
+        phab.load_patches_stack(build)
+
+    bus = MessageBus()
+    bus.add_queue("phabricator")
+
+    from libmozevent import mercurial
+
+    mercurial.TRY_STATUS_URL = "http://test.status/try"
+
+    sleep_history = []
+
+    class AsyncioMock(object):
+        async def sleep(self, value):
+            nonlocal sleep_history
+            sleep_history.append(value)
+
+    mercurial.asyncio = AsyncioMock()
+
+    responses.get(
+        "http://test.status/try", status=200, json={"result": {"status": "open"}}
+    )
+
+    repository_mock = MagicMock(spec=Repository)
+
+    worker = MercurialWorker(
+        "mercurial", "phabricator", repositories={"PHID-REPO-mc": repository_mock}
+    )
+    worker.register(bus)
+
+    await bus.send("mercurial", build)
+    assert bus.queues["mercurial"].qsize() == 1
+    task = asyncio.create_task(worker.run())
+
+    # Check the treeherder link was queued
+    mode, out_build, details = await bus.receive("phabricator")
+    task.cancel()
+
+    assert build.retries == 0
+
+    assert mode == "fail:mercurial"
+    assert out_build == build
+    assert details["duration"] > 0
+    assert details["message"] == "This build is too old to push to try repository"
+
+    # no call sent to TRY_STATUS_URL
+    assert len(responses.calls) == 0
