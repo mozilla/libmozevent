@@ -205,17 +205,19 @@ class PhabricatorActions(object):
         # We need Phabricator diff details to get the date
         if build.diff is None:
             try:
-                diffs = self.api.search_diffs(diff_id=self.diff_id)
+                diffs = self.api.search_diffs(diff_id=build.diff_id)
                 build.diff = diffs[0]
             except Exception as e:
                 logger.warn("Failed to load diff", build=str(build), err=str(e))
                 return True
 
         # Then we can check on the expiry date
-        date_created = build.diff.get("fields", {}).get("dateCreated")
+        date_created = build.diff.get("dateCreated")
         if not date_created:
             logger.warn("No creation date found", build=str(build))
             return True
+
+        logger.info("Found diff creation date", build=str(build), created=date_created)
 
         return (
             datetime.now() - datetime.fromtimestamp(date_created) <= self.build_expiry
