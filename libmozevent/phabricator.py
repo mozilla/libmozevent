@@ -206,6 +206,8 @@ class PhabricatorActions(object):
         if build.diff is None:
             try:
                 diffs = self.api.search_diffs(diff_id=build.diff_id)
+                if not diffs:
+                    raise Exception(f"Diff {build.diff_id} not found on Phabricator")
                 build.diff = diffs[0]
             except Exception as e:
                 logger.warn("Failed to load diff", build=str(build), err=str(e))
