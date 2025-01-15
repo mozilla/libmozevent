@@ -11,7 +11,7 @@ import json
 import os
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import hglib
 import requests
@@ -340,7 +340,6 @@ class MercurialWorker(object):
         queue_name,
         queue_phabricator,
         repositories,
-        diff_expiry=timedelta(hours=24),
         skippable_files=[],
     ):
         assert all(map(lambda r: isinstance(r, Repository), repositories.values()))
@@ -348,7 +347,6 @@ class MercurialWorker(object):
         self.queue_phabricator = queue_phabricator
         self.repositories = repositories
         self.skippable_files = skippable_files
-        self.diff_expiry = diff_expiry
 
     def register(self, bus):
         self.bus = bus
@@ -456,22 +454,8 @@ class MercurialWorker(object):
                 build,
                 {"message": error_log, "duration": time.time() - start},
             )
-        if (
-            build.diff.get("fields")
-            and build.diff["fields"].get("dateCreated")
-            and (
-                datetime.now()
-                - datetime.fromtimestamp(build.diff["fields"]["dateCreated"])
-                > self.diff_expiry
-            )
-        ):
-            error_log = "This build is too old to push to try repository"
-            return (
-                "fail:mercurial",
-                build,
-                {"message": error_log, "duration": time.time() - start},
-            )
-        elif build.retries:
+
+        if build.retries:
             logger.warning(
                 "Trying to apply build's diff after a remote push error "
                 f"[{build.retries}/{MAX_PUSH_RETRIES}]"
