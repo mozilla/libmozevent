@@ -454,7 +454,8 @@ class MercurialWorker(object):
                 build,
                 {"message": error_log, "duration": time.time() - start},
             )
-        elif build.retries:
+
+        if build.retries:
             logger.warning(
                 "Trying to apply build's diff after a remote push error "
                 f"[{build.retries}/{MAX_PUSH_RETRIES}]"
