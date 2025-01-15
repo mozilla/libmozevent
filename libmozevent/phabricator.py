@@ -121,7 +121,7 @@ class PhabricatorActions(object):
             logger.info("Revision is public", build=str(build))
 
             # Check if the build has not expired
-            if not self.check_build_expiry(build):
+            if self.is_expired_build(build):
                 build.state = PhabricatorBuildState.Expired
                 logger.info("Revision has expired", build=str(build))
 
@@ -195,10 +195,10 @@ class PhabricatorActions(object):
         """
         return "https://{}/D{}".format(self.api.hostname, build.revision_id)
 
-    def check_build_expiry(self, build):
+    def is_expired_build(self, build):
         """
         Check if a build has expired, using its Phabricator diff information
-        Returns False when the build has expired and should not be processed
+        Returns True when the build has expired and should not be processed
         """
         assert isinstance(build, PhabricatorBuild)
 
@@ -211,16 +211,14 @@ class PhabricatorActions(object):
                 build.diff = diffs[0]
             except Exception as e:
                 logger.warn("Failed to load diff", build=str(build), err=str(e))
-                return True
+                return False
 
         # Then we can check on the expiry date
         date_created = build.diff.get("dateCreated")
         if not date_created:
             logger.warn("No creation date found", build=str(build))
-            return True
+            return False
 
         logger.info("Found diff creation date", build=str(build), created=date_created)
 
-        return (
-            datetime.now() - datetime.fromtimestamp(date_created) <= self.build_expiry
-        )
+        return datetime.now() - datetime.fromtimestamp(date_created) > self.build_expiry

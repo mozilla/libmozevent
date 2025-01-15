@@ -60,4 +60,4 @@ def test_expiry(PhabricatorMock, caplog):
     build.diff = None  # Force loading the mockup
 
     with PhabricatorMock as phab:
-        assert not phab.check_build_expiry(build)
+        assert phab.is_expired_build(build)
