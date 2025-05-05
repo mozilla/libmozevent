@@ -8,8 +8,8 @@ import hglib
 import pytest
 import responses
 from conftest import MockBuild
-
 from libmozdata.phabricator import PhabricatorPatch
+
 from libmozevent.bus import MessageBus
 from libmozevent.mercurial import MercurialWorker, Repository
 
@@ -235,13 +235,15 @@ Differential Diff: PHID-DIFF-solo"""
     # Check the grand parent is the base, not extra
     great_parents = mock_mc.repo.parents(parent.node)
     assert len(great_parents) == 1
-    great_parent = great_parents[0]
-    assert great_parent.node == base
+    # TODO: Re-enable base revision identification after https://github.com/mozilla/libmozevent/issues/110.
+    # great_parent = great_parents[0]
+    # assert great_parent.node == base
 
     # Extra commit should not appear
     assert parent.node != extra
-    assert great_parent.node != extra
-    assert "EXTRA" not in open(os.path.join(repo_dir, "README.md")).read()
+    # TODO: Re-enable base revision identification after https://github.com/mozilla/libmozevent/issues/110.
+    # assert great_parent.node != extra
+    # assert "EXTRA" not in open(os.path.join(repo_dir, "README.md")).read()
 
 
 @pytest.mark.asyncio
