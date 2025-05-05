@@ -160,19 +160,19 @@ class Repository(object):
             logger.info("All the patches are already applied")
             return
 
-        # TODO: Re-enable base revision identification after https://github.com/mozilla/libmozevent/issues/110.
-        # hg_base = self.get_base_identifier(needed_stack)
+        hg_base = self.get_base_identifier(needed_stack)
 
-        # # When base revision is missing, update to default revision
-        # build.base_revision = hg_base
-        # build.missing_base_revision = not self.has_revision(hg_base)
-        # if build.missing_base_revision:
-        #     logger.warning(
-        #         "Missing base revision from Phabricator",
-        #         revision=hg_base,
-        #         fallback=self.default_revision,
-        #     )
-        #     hg_base = self.default_revision
+        # When base revision is missing, update to default revision
+        build.base_revision = hg_base
+        # TODO: Re-enable base revision identification after https://github.com/mozilla/libmozevent/issues/110.
+        build.missing_base_revision = False  # not self.has_revision(hg_base)
+        if build.missing_base_revision:
+            logger.warning(
+                "Missing base revision from Phabricator",
+                revision=hg_base,
+                fallback=self.default_revision,
+            )
+            hg_base = self.default_revision
         hg_base = self.default_revision
 
         # Store the actual base revision we used
