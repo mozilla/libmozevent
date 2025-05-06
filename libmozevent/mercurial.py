@@ -176,7 +176,7 @@ class Repository(object):
         hg_base = self.default_revision
 
         # Store the actual base revision we used
-        self.actual_base_revision = hg_base
+        build.actual_base_revision = hg_base
 
         # Update the repo to base revision
         try:
