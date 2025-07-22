@@ -14,13 +14,11 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
-import hglib
 import pytest
 import responses
 from taskcluster.helper import TaskclusterConfig
 from taskcluster.utils import stringDate
 
-from libmozevent.mercurial import Repository
 from libmozevent.phabricator import (
     PhabricatorActions,
     PhabricatorBuild,
@@ -265,74 +263,6 @@ def PhabricatorMock():
         )
         actions.mocks = resp  # used to assert in tests on callbacks
         yield actions
-
-
-def build_repository(tmpdir, name):
-    """
-    Mock a local mercurial repo
-    """
-    # Init empty repo
-    repo_dir = str(tmpdir.mkdir(name).realpath())
-    hglib.init(repo_dir)
-
-    # Add default pull in Mercurial config
-    hgrc = tmpdir.join(name, ".hg", "hgrc")
-    hgrc.write("[paths]\ndefault = {}".format(repo_dir))
-
-    # Open repo with config
-    repo = hglib.open(repo_dir)
-
-    # Commit a file on central
-    readme = tmpdir.join(name, "README.md")
-    readme.write("Hello World")
-    repo.add(str(readme.realpath()).encode("utf-8"))
-    repo.branch(name=b"central", force=True)
-    repo.commit(message=b"Readme", user="test")
-
-    # Mock push to avoid reaching try server
-    repo.push = MagicMock(return_value=True)
-
-    return repo
-
-
-@pytest.fixture
-def mock_mc(tmpdir):
-    """
-    Mock a Mozilla Central repository
-    """
-    config = {
-        "name": "mozilla-central",
-        "ssh_user": "john@doe.com",
-        "ssh_key": "privateSSHkey",
-        "url": "http://mozilla-central",
-        "try_url": "http://mozilla-central/try",
-        "batch_size": 100,
-    }
-    repo = Repository(config, tmpdir.realpath())
-    repo._repo = build_repository(tmpdir, "mozilla-central")
-    repo.clone = MagicMock(side_effect=asyncio.coroutine(lambda: True))
-    return repo
-
-
-@pytest.fixture
-def mock_nss(tmpdir):
-    """
-    Mock an NSS repository
-    """
-    config = {
-        "name": "nss",
-        "ssh_user": "john@doe.com",
-        "ssh_key": "privateSSHkey",
-        "url": "http://nss",
-        "try_url": "http://nss/try",
-        "try_mode": "syntax",
-        "try_syntax": "-a -b XXX -c YYY",
-        "batch_size": 100,
-    }
-    repo = Repository(config, tmpdir.realpath())
-    repo._repo = build_repository(tmpdir, "nss")
-    repo.clone = MagicMock(side_effect=asyncio.coroutine(lambda: True))
-    return repo
 
 
 @pytest.fixture
