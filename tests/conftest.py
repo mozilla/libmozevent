@@ -3,7 +3,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import asyncio
 import collections
 from configparser import ConfigParser
 import json
@@ -12,7 +11,6 @@ import tempfile
 import urllib.parse
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock
 
 import pytest
 import responses

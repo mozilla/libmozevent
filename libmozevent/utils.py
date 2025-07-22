@@ -4,10 +4,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import asyncio
 import contextvars
-import fcntl
 import os
 import signal
-import time
 from typing import Iterable
 
 import structlog
