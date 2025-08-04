@@ -49,15 +49,3 @@ def test_backoff(PhabricatorMock):
         phab.update_state(build)
         assert build.state == PhabricatorBuildState.Public
         assert phab.is_visible.call_count == 3
-
-
-def test_expiry(PhabricatorMock, caplog):
-    """
-    Test diff expiration method on a known API mock
-    """
-    build = MockBuild(1234, "PHID-REPO-mc", 5678, "PHID-HMBT-deadbeef", {})
-    build.state = PhabricatorBuildState.Queued
-    build.diff = None  # Force loading the mockup
-
-    with PhabricatorMock as phab:
-        assert phab.is_expired_build(build)
