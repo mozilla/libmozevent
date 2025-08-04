@@ -59,7 +59,7 @@ class PhabricatorActions(object):
     Common Phabricator actions shared across clients
     """
 
-    def __init__(self, url, api_key, retries=5, sleep=10):
+    def __init__(self, url, api_key, retries=6, sleep=15):
         self.api = PhabricatorAPI(url=url, api_key=api_key)
 
         # Phabricator secure revision retries configuration
