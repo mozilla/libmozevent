@@ -4,11 +4,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import collections
-from configparser import ConfigParser
 import json
 import os.path
 import tempfile
 import urllib.parse
+from configparser import ConfigParser
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 

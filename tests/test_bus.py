@@ -59,7 +59,7 @@ async def test_message_passing_async():
 @pytest.mark.asyncio
 async def test_message_passing_mp():
     """
-    Test sending & receiving messages on a multiprocessing queueu
+    Test sending & receiving messages on a multiprocessing queue
     """
     bus = MessageBus()
     bus.add_queue("test", mp=True)

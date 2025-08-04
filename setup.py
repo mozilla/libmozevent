@@ -34,7 +34,7 @@ with open("VERSION") as f:
 setuptools.setup(
     name="libmozevent",
     version=VERSION,
-    description="Listens to Mozilla event sources" "and build workflows on top.",
+    description="Listens to Mozilla event sources and build workflows on top.",
     author="Mozilla Release Management",
     author_email="release-mgmt-analysis@mozilla.com",
     url="https://github.com/mozilla/libmozevent",

@@ -149,7 +149,7 @@ class PulseListener(object):
             if payload_exchange != exchange:
                 return False
 
-            # One of the pauload routes must match the current route
+            # One of the payload routes must match the current route
             route = route.replace("#", "*").encode("utf-8")
             return len(fnmatch.filter(payload_routes, route)) > 0
 

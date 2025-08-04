@@ -145,13 +145,13 @@ class MessageBus(object):
         """
         assert input_name in self.queues, f"Missing queue {input_name}"
         for output_name in output_names:
-            assert (
-                output_name is None or output_name in self.queues
-            ), f"Missing queue {output_name}"
+            assert output_name is None or output_name in self.queues, (
+                f"Missing queue {output_name}"
+            )
 
-        assert (
-            sequential is True or len(output_names) == 0
-        ), "Parallel run is not supported yet when an output queue is defined"
+        assert sequential is True or len(output_names) == 0, (
+            "Parallel run is not supported yet when an output queue is defined"
+        )
 
         while True:
             message = await self.receive(input_name)
