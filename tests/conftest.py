@@ -125,12 +125,8 @@ def PhabricatorMock():
         if "revisionPHIDs" in params["constraints"]:
             # Search from revision
             mock_name = "search-{}".format(params["constraints"]["revisionPHIDs"][0])
-        elif "ids" in params["constraints"]:
-            # Search from diff IDs
-            diffs = "-".join(map(str, params["constraints"]["ids"]))
-            mock_name = "search-{}".format(diffs)
         elif "phids" in params["constraints"]:
-            # Search from diff PHIDs
+            # Search from diffs
             diffs = "-".join(params["constraints"]["phids"])
             mock_name = "search-{}".format(diffs)
         else:
