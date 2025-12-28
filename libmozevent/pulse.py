@@ -64,14 +64,17 @@ async def create_pulse_listener(
         #   pulse but something we started doing in release services
         queue = f"queue/{user}/exchange/{exchange_name}"
 
-        await channel.queue_declare(queue_name=queue, durable=True)
+        await channel.queue_declare(queue_name=queue, durable=True, auto_delete=True)
 
         # in case we are going to listen to an exchange that is specific for this
         # user, we need to ensure that exchange exists before first message is
         # sent (this is what creates exchange)
         if exchange.startswith(f"exchange/{user}/"):
             await channel.exchange_declare(
-                exchange_name=exchange, type_name="topic", durable=True
+                exchange_name=exchange,
+                type_name="topic",
+                durable=True,
+                auto_delete=True,
             )
 
         for topic in topics:
