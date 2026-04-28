@@ -1,4 +1,4 @@
-aioamqp>=0.13.0
+aioamqp>=0.15.0
 aiohttp
 libmozdata
 pytoml
